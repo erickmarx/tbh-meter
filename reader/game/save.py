@@ -18,19 +18,46 @@ def read_gold(reader, psd):
     return 0
 
 
+import struct
+
 def read_heroes(reader, psd):
-    """{heroKey: (level, exp)} of the played heroes (from the save; exp is stale)."""
-    res = {}
+    """{heroKey: (level, exp)} of the played heroes (from the save; exp is stale).
+
+    Each hero's struct (HERO_KEY..EXP+4) is read in a SINGLE RPM call
+    to make the read atomic per-hero. After reading all heroes, the first
+    hero's EXP is re-read for consistency; a mismatch means a save-write
+    raced us, and we retry up to 3 times."""
     if not psd:
+        return {}
+    SPAN = (HeroSaveData.EXP + 4) - HeroSaveData.HERO_KEY
+    res = {}
+    for _attempt in range(3):
+        ptrs = reader.list_ptrs(reader.rptr(psd + PlayerSaveData.HEROES), cap=200)
+        if not ptrs:
+            return {}
+        res.clear()
+        first_hero = None
+        for e in ptrs:
+            if not e:
+                continue
+            buf = reader.read(e + HeroSaveData.HERO_KEY, SPAN)
+            if not buf or len(buf) < SPAN:
+                continue
+            k = struct.unpack("<i", buf[0:4])[0]
+            lvl = struct.unpack("<i", buf[4:8])[0]
+            exp = struct.unpack("<f", buf[12:16])[0]
+            if k is None or k <= 0 or lvl is None or exp is None:
+                continue
+            if lvl > 1 or exp > 0:
+                res[k] = (lvl, exp)
+            if first_hero is None:
+                first_hero = (e, exp)
+        if first_hero and res:
+            e0, exp0 = first_hero
+            verify = reader.rf32(e0 + HeroSaveData.EXP)
+            if verify is not None and verify != exp0:
+                continue  # race detected, retry
         return res
-    for e in reader.list_iter(reader.rptr(psd + PlayerSaveData.HEROES), cap=200):
-        k = reader.ri32(e + HeroSaveData.HERO_KEY)
-        lvl = reader.ri32(e + HeroSaveData.LEVEL)
-        exp = reader.rf32(e + HeroSaveData.EXP)
-        if k is None or lvl is None or exp is None:
-            continue
-        if lvl > 1 or exp > 0:
-            res[k] = (lvl, exp)
     return res
 
 
