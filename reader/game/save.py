@@ -18,52 +18,20 @@ def read_gold(reader, psd):
     return 0
 
 
-import struct
-
 def read_heroes(reader, psd):
-    """{heroKey: (level, exp)} of the played heroes (from the save; exp is stale).
-
-    Each hero's struct (HERO_KEY..EXP+4, 16 bytes) is read in a SINGLE
-    ReadProcessMemory call to make the read atomic per-hero — preventing
-    a save-write from landing between the key/level/exp reads and giving
-    one hero a stale baseline. After reading all heroes, the first hero is
-    re-read for consistency; a mismatch means a save-write raced us, and we
-    retry up to 3 times."""
-    if not psd:
-        return {}
+    """{heroKey: (level, exp)} of the played heroes (from the save; exp is stale)."""
     res = {}
-    # Span from HERO_KEY (0x10) through EXP (0x1C) + 4 bytes for float32
-    SPAN = (HeroSaveData.EXP + 4) - HeroSaveData.HERO_KEY
-    for _attempt in range(3):
-        res = {}
-        ptrs = reader.list_ptrs(reader.rptr(psd + PlayerSaveData.HEROES), cap=200)
-        if not ptrs:
-            return {}
-        first_hero = None
-        for e in ptrs:
-            if not e:
-                continue
-            buf = reader.read(e + HeroSaveData.HERO_KEY, SPAN)
-            if not buf or len(buf) < SPAN:
-                continue
-            k = struct.unpack("<i", buf[0:4])[0]
-            lvl = struct.unpack("<i", buf[4:8])[0]
-            exp = struct.unpack("<f", buf[12:16])[0]
-            if k is None or k <= 0 or lvl is None or exp is None:
-                continue
-            if lvl > 1 or exp > 0:
-                res[k] = (lvl, exp)
-            if first_hero is None:
-                first_hero = (e, exp)
-        # Consistency check: re-read the first hero's EXP. If it changed,
-        # a save-write raced us — discard and retry.
-        if first_hero and res:
-            e0, exp0 = first_hero
-            verify = reader.rf32(e0 + HeroSaveData.EXP)
-            if verify is not None and verify != exp0:
-                continue  # race detected, retry
+    if not psd:
         return res
-    return res  # exhausted retries, return last attempt
+    for e in reader.list_iter(reader.rptr(psd + PlayerSaveData.HEROES), cap=200):
+        k = reader.ri32(e + HeroSaveData.HERO_KEY)
+        lvl = reader.ri32(e + HeroSaveData.LEVEL)
+        exp = reader.rf32(e + HeroSaveData.EXP)
+        if k is None or lvl is None or exp is None:
+            continue
+        if lvl > 1 or exp > 0:
+            res[k] = (lvl, exp)
+    return res
 
 
 def pick_live_psd(reader, cands):
