@@ -1055,8 +1055,8 @@ def run(hz, output_dir, debug=False):
         # / a dead hero from the previous run revived: gain=None → +0 in the app) — the accumulator banks
         # the gain of whoever died (a dead hero accumulates 0 while dead, real game behavior, preserved).
         # 1.00.20: the live within-level exp DIED (EXP_FAKE decoy zeroed; the real value is behind the
-        # off-limits cipher), so read_live_party yields exp=None → the accumulator sees nobody →
-        # xp_live_ok=False → xp falls back to xp_gain (the per-hero SAVE delta) tagged xp_source="save".
+        # off-limits cipher), so read_live_party yields exp=None. The accumulator tracks save EXP
+        # at 1Hz for level-up bridging; save_delta (xp_gain) is the primary XP source.
         xpacc = R["xp_acc"]
         # LIVE party identity (gated on hero_cat); level/exp from heroes_end (the save snapshot already
         # read above) since the live decoy died in 1.00.20. never-raises -> {} on failure.
@@ -1066,22 +1066,28 @@ def run(hz, output_dir, debug=False):
                        in heroes_end.items() if hk in pl_end}
         xpacc.update(xp_feed_end)
         R["party_seen"].update(dict.fromkeys(pl_end))  # live at close = seen (live_keys ⊇ acc)
-        # XP per-run = the LIVE one (real-time, exact). The save is a lagging snapshot (useless delta: 0 or a
-        # ~10M jump depending on where the save-write falls in the run = jitter) -> NO longer recorded; only a silent
-        # fallback if the live one didn't happen (the accumulator never saw anyone = sm off the whole run), so as to never
-        # zero xp in a degraded case. total() returns None in that case — NEVER conflate with 0 (a valid gain).
+        # XP per-run primary source: save_delta (heroes_end − heroes_start).
+        # The save delta IS the ground truth for non-level-up runs — it captures
+        # all checkpoint XP without depending on 1Hz sampling timing.
+        # Accumulator is only used for level-up bridging (xp_through_levelup),
+        # where save_delta fails because HeroExp resets to ~0 on level-up.
         xp_total_live = xpacc.total()
-        xp_live_ok = xp_total_live is not None
-        xp_best = round(xp_total_live, 2) if xp_live_ok else xp_gain
-        xp_src = "live" if xp_live_ok else "save"
+        any_levelup = xp_total_live is not None and any(
+            st["levelup"] for st in xpacc._heroes.values())
+        if xp_total_live is not None and any_levelup:
+            xp_best = round(xp_total_live, 2)
+            xp_src = "live"
+        else:
+            xp_best = xp_gain
+            xp_src = "save"
         diag(f"[xp-acc] total={xp_total_live} "
              f"acc_state={ {hk: {'lvl':st['lv'],'exp':st['exp'],'acc':st['acc']} for hk,st in xpacc._heroes.items()} } "
              f"save_delta={xp_gain} xp_by_hero={xp_by_hero} "
              f"heroes_start={R['heroes_start']} "
              f"heroes_end={ {k: v[1] for k, v in heroes_end.items()} }")
-        # xp was read if the live one happened (the accumulator saw someone) OR there was save data (heroes_end). Neither ->
-        # err in the envelope (same logic as gold: didn't-read != gained-zero).
-        xp_ok = xp_live_ok or bool(heroes_end)
+        # xp was read if there's save data (heroes_end) or accumulator level-up bridge.
+        # Neither -> err in the envelope (same logic as gold: didn't-read != gained-zero).
+        xp_ok = (xp_total_live is not None and any_levelup) or bool(heroes_end)
         # The artifact = only the heroes ACTUALLY deployed in this run (live party = StageManager.HeroList).
         # The save lists the arranged party/roster (playing solo with the Ranger the save lists all 6) -> filter
         # by live_keys: pl_start ∪ party_seen (an sm that resolves LATE enters via the 1s snapshot).
@@ -1117,15 +1123,12 @@ def run(hz, output_dir, debug=False):
                 # No live accumulator record for this hero -> per-hero SAVE fallback (xp_by_hero),
                 # NEVER None/+0 (the boundary-death bug) nor the roster.
                 # Two cases:
-                #  - LIVE xp source DEAD build-wide (1.00.20: within-level exp behind the cipher ->
-                #    read_live_party yields exp=None -> the acc saw NOBODY, xp_live_ok=False). This is
-                #    the EXPECTED honest "live xp off" degradation (the whole run is already tagged
-                #    xp_source="save") — NOT an anomaly, so no ⚠ (it would fire for every hero, every run).
-                #  - The acc saw SOMEONE but missed THIS hero (xp_live_ok=True): a real regression (the acc
-                #    eats the SAME reads that feed pl_start/party_seen) -> ⚠ makes it OBSERVABLE: if it
-                #    fires, sum(heroes.xp) exceeds the run total (acc excludes this save-sourced hero).
+                #  - Accumulator never saw anyone (total()=None): whole run is tagged xp_src="save",
+                #    this is the EXPECTED honest degradation — NOT an anomaly, no ⚠.
+                #  - Accumulator saw SOMEONE but missed THIS hero: a real regression (the acc
+                #    eats the SAME reads that feed pl_start/party_seen) -> ⚠ makes it OBSERVABLE.
                 hh["xp_gained"] = round(xp_by_hero.get(hk, 0.0), 2)
-                if xp_live_ok:
+                if xp_total_live is not None:
                     print(f"⚠ xp acc-miss hero={hk} (in live_keys with no acc record) "
                           f"-> save fallback +{hh['xp_gained']}")
             # Per-hero survival (from the HeroDie/Resurrection logs): deaths, revives, who killed.
