@@ -16,7 +16,7 @@ from config.offsets import (HeroRuntime, StatsHolder, Dict, DictFloat, Array, Li
                             AttributeSaveData, ItemSaveData, ItemEnchant, name_map,
                             EItemParts, EGradeType, EEquipClassType, ERecipeType, StatType,
                             RuneSaveData, InventorySaveData, StashSaveData)
-from shared.utils import resource_path
+from shared.utils import resource_path, diag
 
 _PARTS = name_map(EItemParts)
 _GRADE = name_map(EGradeType)
@@ -83,20 +83,20 @@ def read_attribute_levels(reader, psd):
 # moved behind the Obscured cipher (hiddenValue XOR currentCryptoKey).
 # Decoding is fragile (key rotates per-build) but it's the only live XP source.
 # Obscured layout: [padding?:4] [key:4] [hidden:4] [fake:4 (dead)] [inited:4]
-#   key   = int32 at fakeValue - 0x08
-#   hidden = int32 at fakeValue - 0x04
+#   key   = int32 at fakeValue + 0x04
+#   hidden = int32 at fakeValue + 0x08
 #   real   = hidden ^ key  (cast to float for ObscuredFloat)
 def _decode_obs_int(reader, uf, fake_off):
-    key = reader.ri32(uf + fake_off - 0x08)
-    hid = reader.ri32(uf + fake_off - 0x04)
+    key = reader.ri32(uf + fake_off + 0x04)
+    hid = reader.ri32(uf + fake_off + 0x08)
     if key is None or hid is None:
         return None
     return hid ^ key
 
 
 def _decode_obs_float(reader, uf, fake_off):
-    key = reader.ri32(uf + fake_off - 0x08)
-    hid = reader.ri32(uf + fake_off - 0x04)
+    key = reader.ri32(uf + fake_off + 0x04)
+    hid = reader.ri32(uf + fake_off + 0x08)
     if key is None or hid is None:
         return None
     decoded = hid ^ key
@@ -160,6 +160,10 @@ def read_live_party(reader, sm, hero_cat=None, save_heroes=None):
             # (hiddenValue XOR currentCryptoKey). Falls back to save when decoding fails.
             lvl = _decode_obs_int(reader, uf, HeroRuntime.LEVEL_FAKE)
             exp = _decode_obs_float(reader, uf, HeroRuntime.EXP_FAKE)
+            diag(f"[obs-decode] hk={hk} uf={hex(uf)} "
+                 f"lvl_raw={reader.ri32(uf+HeroRuntime.LEVEL_FAKE)} "
+                 f"exp_raw={reader.rf32(uf+HeroRuntime.EXP_FAKE)} "
+                 f"lvl={lvl} exp={exp}")
             if lvl is None or exp is None:
                 se = (save_heroes or {}).get(hk, (None, None))
                 lvl = se[0]
