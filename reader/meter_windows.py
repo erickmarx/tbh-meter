@@ -1446,6 +1446,14 @@ def run(hz, output_dir, debug=False):
                 xp_feed = {hk: (lvl, exp) for hk, (lvl, exp)
                            in heroes_now.items() if hk in pl_end}
                 R["xp_acc"].update(xp_feed)
+                # DIAG: per-tick PSD tracking — shows save EXP at every 1Hz tick
+                # to diagnose checkpoint timing vs accumulator capture
+                if R["xp_acc"]._heroes:
+                    hx = {hk: f"lvl={st['lv']} exp={st['exp']:.0f} acc={st['acc']:.0f}"
+                          for hk, st in R["xp_acc"]._heroes.items()}
+                    diag(f"[xp-1hz] run=#{run_num} t={elapsed}s "
+                         f"feed={ {hk: f'{lvl},{exp:.0f}' for hk,(lvl,exp) in xp_feed.items()} } "
+                         f"acc={hx}")
                 # 64 live FINAL stats per hero (same read as the close). Additive in live.json:
                 # feeds the per-hero effective-resistance tooltip in the overlay. never-raises -> {}.
                 live_stats = build.read_live_stats_by_hero(reader, sm)
