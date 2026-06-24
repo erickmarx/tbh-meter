@@ -1062,6 +1062,11 @@ def run(hz, output_dir, debug=False):
         xp_live_ok = xp_total_live is not None
         xp_best = round(xp_total_live, 2) if xp_live_ok else xp_gain
         xp_src = "live" if xp_live_ok else "save"
+        diag(f"[xp-acc] total={xp_total_live} "
+             f"acc_state={ {hk: {'lvl':st['lv'],'exp':st['exp'],'acc':st['acc']} for hk,st in xpacc._heroes.items()} } "
+             f"save_delta={xp_gain} xp_by_hero={xp_by_hero} "
+             f"heroes_start={R['heroes_start']} "
+             f"heroes_end={ {k: v[1] for k, v in heroes_end.items()} }")
         # xp was read if the live one happened (the accumulator saw someone) OR there was save data (heroes_end). Neither ->
         # err in the envelope (same logic as gold: didn't-read != gained-zero).
         xp_ok = xp_live_ok or bool(heroes_end)
