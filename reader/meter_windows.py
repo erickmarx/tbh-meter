@@ -905,6 +905,8 @@ def run(hz, output_dir, debug=False):
         if not sm:
             sm = save.pick_live_sm(reader, sm_list)
         p = save.pick_live_psd(reader, psd_list)
+        diag(f"[xp-diag] new_run psd={hex(p) if p else None} "
+             f"heroes_start={ {k: v[1] for k, v in save.read_heroes(reader, p).items()} if p else {}}")
         pl0 = build.read_live_party(reader, sm)
         # LIVE per-hero xp accumulator (metrics.xp.PartyXpAccumulator) — the primary LIVE of the
         # xp chain. Run state is born HERE (never only at close — that would leak the previous run) and is
@@ -999,6 +1001,8 @@ def run(hz, output_dir, debug=False):
         # only a summary/console annotation; it also does NOT enter the record (the converter derives it).
         fp = save.pick_live_psd(reader, psd_list)
         heroes_end = save.read_heroes(reader, fp)
+        diag(f"[xp-diag] close_run psd={hex(fp) if fp else None} "
+             f"heroes_end={ {k: v[1] for k, v in heroes_end.items()} if fp else {}}")
         # Gold per run = delta of the LIVE combat cumulative (GoldEarn[SubKey1] of the AggregateManager;
         # exact, real-time, excludes selling/idle). Only falls back to the SAVE delta if the live one doesn't
         # resolve/read (the save lags and jumps -> can give 0 or ~2x; that's why it's only a fallback). All in gold.py.
@@ -1027,6 +1031,9 @@ def run(hz, output_dir, debug=False):
         xp_by_hero = {k: 0.0 if xp.level_capped(v[0]) else max(0.0, v[1] - R["heroes_start"].get(k, 0.0))
                       for k, v in heroes_end.items()}
         xp_gain = sum(xp_by_hero.values())
+        diag(f"[xp-diag] xp_by_hero={xp_by_hero} xp_gain={xp_gain} "
+             f"heroes_start={R['heroes_start']} "
+             f"heroes_end={ {k: v[1] for k, v in heroes_end.items()} }")
         # LIVE XP = the per-hero ACCUMULATOR (metrics.xp.PartyXpAccumulator), which integrated the
         # within-level (EXP_FAKE) tick-by-tick the WHOLE run (seeded in new_run, fed by the
         # 1s snapshot). Here only: 1 FINAL tick (banks the last ≤1s) + reading the finished records.
