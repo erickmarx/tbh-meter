@@ -79,6 +79,30 @@ def read_attribute_levels(reader, psd):
     return res
 
 
+# 1.00.20: the ACTk fakeValue decoy died build-wide. The real live level/exp
+# moved behind the Obscured cipher (hiddenValue XOR currentCryptoKey).
+# Decoding is fragile (key rotates per-build) but it's the only live XP source.
+# Obscured layout: [padding?:4] [key:4] [hidden:4] [fake:4 (dead)] [inited:4]
+#   key   = int32 at fakeValue - 0x08
+#   hidden = int32 at fakeValue - 0x04
+#   real   = hidden ^ key  (cast to float for ObscuredFloat)
+def _decode_obs_int(reader, uf, fake_off):
+    key = reader.ri32(uf + fake_off - 0x08)
+    hid = reader.ri32(uf + fake_off - 0x04)
+    if key is None or hid is None:
+        return None
+    return hid ^ key
+
+
+def _decode_obs_float(reader, uf, fake_off):
+    key = reader.ri32(uf + fake_off - 0x08)
+    hid = reader.ri32(uf + fake_off - 0x04)
+    if key is None or hid is None:
+        return None
+    decoded = hid ^ key
+    return struct.unpack("<f", struct.pack("<i", decoded))[0]
+
+
 def read_live_party(reader, sm, hero_cat=None, save_heroes=None):
     """{heroKey: (level, exp)} for the LIVE DEPLOYED party (StageManager.HeroList). The party
     IDENTITY (which heroKeys are on the field) is read LIVE — the invariant party source — and the
@@ -132,15 +156,15 @@ def read_live_party(reader, sm, hero_cat=None, save_heroes=None):
             # carries a stale/garbage key that doesn't. heroKey-plausibility only when hero_cat is absent.
             if hero_cat is not None and hk not in hero_cat:
                 continue
-            # LEVEL from the SAVE (the live decoy is dead; the live level is behind the cipher, off-
-            # limits) — informative for the overlay/diagnostics. EXP is FORCED None: the live WITHIN-
-            # LEVEL exp is gone, and feeding the stale SAVE exp into the live xp accumulator would make
-            # the SAVE fallback silently report as LIVE (xp_source="live") — forbidden by
-            # [[invariants/metric-fallback-chains]] rule 2. None keeps the accumulator EMPTY, so close_run
-            # honestly tags the run's xp `save` and uses the per-hero save delta (capped→0). The party
-            # IDENTITY stays fully LIVE; only level/exp degrade.
-            lvl = (save_heroes or {}).get(hk, (None, None))[0]
-            res[hk] = (lvl, None)
+            # 1.00.20: decode the live level/exp from behind the ACTk Obscured cipher
+            # (hiddenValue XOR currentCryptoKey). Falls back to save when decoding fails.
+            lvl = _decode_obs_int(reader, uf, HeroRuntime.LEVEL_FAKE)
+            exp = _decode_obs_float(reader, uf, HeroRuntime.EXP_FAKE)
+            if lvl is None or exp is None:
+                se = (save_heroes or {}).get(hk, (None, None))
+                lvl = se[0]
+                exp = se[1]
+            res[hk] = (lvl, exp)
     except Exception:
         return {}
     return res
