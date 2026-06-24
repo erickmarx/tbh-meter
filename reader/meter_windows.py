@@ -922,9 +922,9 @@ def run(hz, output_dir, debug=False):
         _sh = save.read_heroes(reader, p)
         pl0 = build.read_live_party(reader, sm, hero_cat, _sh)
         xpacc = xp.PartyXpAccumulator()
-        # Seed accumulator with SAVE EXP for deployed heroes (read_live_party forces exp=None).
-        xp_feed0 = {hk: (lvl, exp) for hk, (lvl, exp) in _sh.items() if hk in pl0}
-        xpacc.update(xp_feed0)
+        # DON'T seed here — wait for the first save-write to establish the
+        # post-checkpoint baseline. Seeding now risks a pre-checkpoint state
+        # that misses half the run's XP.
         return {"dps": DpsTracker(), "mobs": 0, "start": time.time(),
                 "gold_start": save.read_gold(reader, p) or 0,
                 # LIVE combat-gold baseline at the START (delta at close = the run's gold).
@@ -1434,7 +1434,19 @@ def run(hz, output_dir, debug=False):
                 # captures all checkpoint XP without boundary-timing distortion.
                 xp_feed = {hk: (lvl, exp) for hk, (lvl, exp)
                            in heroes_now.items() if hk in pl_end}
-                R["xp_acc"].update(xp_feed)
+                # Seed accumulator on first tick where save EXP differs from
+                # new_run baseline — avoids capturing pre-checkpoint state.
+                if not R.get("_xp_seeded") and "heroes_start" in R:
+                    changed = any(
+                        exp != R["heroes_start"].get(hk, 0.0)
+                        for hk, (lvl, exp) in xp_feed.items()
+                    )
+                    if changed:
+                        R["xp_acc"].update(xp_feed)
+                        R["_xp_seeded"] = True
+                    # else: still pre-checkpoint, wait for next tick
+                elif R.get("_xp_seeded"):
+                    R["xp_acc"].update(xp_feed)
                 # 64 live FINAL stats per hero (same read as the close). Additive in live.json:
                 # feeds the per-hero effective-resistance tooltip in the overlay. never-raises -> {}.
                 live_stats = build.read_live_stats_by_hero(reader, sm)
