@@ -1423,8 +1423,8 @@ def run(hz, output_dir, debug=False):
                 # read_live_party can source level from it (the live decoy died in 1.00.20).
                 psd = save.pick_live_psd(reader, psd_list)
                 heroes_now = save.read_heroes(reader, psd) if psd else {}
-                # LIVE party identity (heroKeys, gated on hero_cat); level from heroes_now, exp None
-                # (live within-level exp is gone -> the accumulator stays empty -> honest save fallback).
+                diag(f"[psd-1hz] psd={hex(psd) if psd else None} "
+                     f"heroes_exp={ {k: v[1] for k, v in heroes_now.items()} }")
                 pl_end = build.read_live_party(reader, sm, hero_cat, heroes_now)
                 R["party_seen"].update(dict.fromkeys(pl_end))
                 # LIVE xp accumulator: save EXP tracked at 1Hz, deltas captured when
