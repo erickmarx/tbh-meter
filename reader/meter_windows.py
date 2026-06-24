@@ -1427,10 +1427,8 @@ def run(hz, output_dir, debug=False):
                 # (live within-level exp is gone -> the accumulator stays empty -> honest save fallback).
                 pl_end = build.read_live_party(reader, sm, hero_cat, heroes_now)
                 R["party_seen"].update(dict.fromkeys(pl_end))
-                # LIVE xp accumulator (the SAME object that closes the run in close_run): integrates the
-                # per-hero tick — the 1st sighting seeds the baseline; then sums increments > 0
-                # (level-up by the curve). Since 1.00.20 read_live_party yields exp=None, so the acc sees
-                # nobody and total() stays None -> the overlay xp uses the SAVE fallback below (honest).
+                # LIVE xp accumulator: save EXP tracked at 1Hz, deltas captured when
+                # the game writes checkpoints. 1s granularity beats run-boundary delta.
                 R["xp_acc"].update(pl_end)
                 # 64 live FINAL stats per hero (same read as the close). Additive in live.json:
                 # feeds the per-hero effective-resistance tooltip in the overlay. never-raises -> {}.

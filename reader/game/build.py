@@ -132,15 +132,14 @@ def read_live_party(reader, sm, hero_cat=None, save_heroes=None):
             # carries a stale/garbage key that doesn't. heroKey-plausibility only when hero_cat is absent.
             if hero_cat is not None and hk not in hero_cat:
                 continue
-            # LEVEL from the SAVE (the live decoy is dead; the live level is behind the cipher, off-
-            # limits) — informative for the overlay/diagnostics. EXP is FORCED None: the live WITHIN-
-            # LEVEL exp is gone, and feeding the stale SAVE exp into the live xp accumulator would make
-            # the SAVE fallback silently report as LIVE (xp_source="live") — forbidden by
-            # [[invariants/metric-fallback-chains]] rule 2. None keeps the accumulator EMPTY, so close_run
-            # honestly tags the run's xp `save` and uses the per-hero save delta (capped→0). The party
-            # IDENTITY stays fully LIVE; only level/exp degrade.
-            lvl = (save_heroes or {}).get(hk, (None, None))[0]
-            res[hk] = (lvl, None)
+            # LEVEL/EXP from the SAVE (the live ACTk decoy died in 1.00.20).
+            # When save_heroes is provided (main loop), feed save EXP into the
+            # accumulator so it tracks deltas at 1Hz granularity — avoids the
+            # checkpoint-timing distortion of run-boundary save delta.
+            se = (save_heroes or {}).get(hk, (None, None))
+            lvl = se[0]
+            exp = se[1] if save_heroes is not None else None
+            res[hk] = (lvl, exp)
     except Exception:
         return {}
     return res
