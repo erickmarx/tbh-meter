@@ -928,9 +928,11 @@ def run(hz, output_dir, debug=False):
         # endpoint delta (exp_start only at t=0) gave a hero outside the baseline.
         # 1.00.20: seed with SAVE EXP bypassing read_live_party's forced exp=None.
         # Accumulator tracks checkpoint deltas at 1Hz from t=0 — NO delayed seeding.
+        # Seed ALL save heroes, not just pl0: pl0 may be empty between runs
+        # (StageManager.HeroList temporarily cleared), causing the first tick to seed
+        # with post-checkpoint EXP → all pre-checkpoint delta lost.
         xpacc = xp.PartyXpAccumulator()
-        xp_feed0 = {hk: (lvl, exp) for hk, (lvl, exp)
-                    in _sh.items() if hk in pl0}
+        xp_feed0 = {hk: (lvl, exp) for hk, (lvl, exp) in _sh.items()}
         xpacc.update(xp_feed0)
         return {"dps": DpsTracker(), "mobs": 0, "start": time.time(),
                 "gold_start": save.read_gold(reader, p) or 0,
