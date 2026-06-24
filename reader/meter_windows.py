@@ -1429,6 +1429,16 @@ def run(hz, output_dir, debug=False):
                 # captures all checkpoint XP without boundary-timing distortion.
                 xp_feed = {hk: (lvl, exp) for hk, (lvl, exp)
                            in heroes_now.items() if hk in pl_end}
+                # First 2s: if save EXP drifted from new_run baseline, a
+                # save-write raced us. Reset accumulator to post-write state.
+                if elapsed <= 2 and not R.get("_xp_ckpt_ok"):
+                    drifted = any(
+                        exp != R["heroes_start"].get(hk, 0.0)
+                        for hk, (lvl, exp) in xp_feed.items()
+                    ) if "heroes_start" in R else False
+                    if drifted:
+                        R["xp_acc"] = xp.PartyXpAccumulator()
+                    R["_xp_ckpt_ok"] = True
                 R["xp_acc"].update(xp_feed)
                 # 64 live FINAL stats per hero (same read as the close). Additive in live.json:
                 # feeds the per-hero effective-resistance tooltip in the overlay. never-raises -> {}.
