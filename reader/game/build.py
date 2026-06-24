@@ -16,7 +16,7 @@ from config.offsets import (HeroRuntime, StatsHolder, Dict, DictFloat, Array, Li
                             AttributeSaveData, ItemSaveData, ItemEnchant, name_map,
                             EItemParts, EGradeType, EEquipClassType, ERecipeType, StatType,
                             RuneSaveData, InventorySaveData, StashSaveData)
-from shared.utils import resource_path, diag
+from shared.utils import resource_path
 
 _PARTS = name_map(EItemParts)
 _GRADE = name_map(EGradeType)
@@ -79,30 +79,6 @@ def read_attribute_levels(reader, psd):
     return res
 
 
-# 1.00.20: the ACTk fakeValue decoy died build-wide. The real live level/exp
-# moved behind the Obscured cipher (hiddenValue XOR currentCryptoKey).
-# Decoding is fragile (key rotates per-build) but it's the only live XP source.
-# Obscured layout: [padding?:4] [key:4] [hidden:4] [fake:4 (dead)] [inited:4]
-#   key   = int32 at fakeValue + 0x04
-#   hidden = int32 at fakeValue + 0x08
-#   real   = hidden ^ key  (cast to float for ObscuredFloat)
-def _decode_obs_int(reader, uf, fake_off):
-    key = reader.ri32(uf + fake_off + 0x04)
-    hid = reader.ri32(uf + fake_off + 0x08)
-    if key is None or hid is None:
-        return None
-    return hid ^ key
-
-
-def _decode_obs_float(reader, uf, fake_off):
-    key = reader.ri32(uf + fake_off + 0x04)
-    hid = reader.ri32(uf + fake_off + 0x08)
-    if key is None or hid is None:
-        return None
-    decoded = hid ^ key
-    return struct.unpack("<f", struct.pack("<i", decoded))[0]
-
-
 def read_live_party(reader, sm, hero_cat=None, save_heroes=None):
     """{heroKey: (level, exp)} for the LIVE DEPLOYED party (StageManager.HeroList). The party
     IDENTITY (which heroKeys are on the field) is read LIVE — the invariant party source — and the
@@ -156,19 +132,11 @@ def read_live_party(reader, sm, hero_cat=None, save_heroes=None):
             # carries a stale/garbage key that doesn't. heroKey-plausibility only when hero_cat is absent.
             if hero_cat is not None and hk not in hero_cat:
                 continue
-            # 1.00.20: decode the live level/exp from behind the ACTk Obscured cipher
-            # (hiddenValue XOR currentCryptoKey). Falls back to save when decoding fails.
-            lvl = _decode_obs_int(reader, uf, HeroRuntime.LEVEL_FAKE)
-            exp = _decode_obs_float(reader, uf, HeroRuntime.EXP_FAKE)
-            diag(f"[obs-decode] hk={hk} uf={hex(uf)} "
-                 f"lvl_raw={reader.ri32(uf+HeroRuntime.LEVEL_FAKE)} "
-                 f"exp_raw={reader.rf32(uf+HeroRuntime.EXP_FAKE)} "
-                 f"lvl={lvl} exp={exp}")
-            if lvl is None or exp is None:
-                se = (save_heroes or {}).get(hk, (None, None))
-                lvl = se[0]
-                exp = se[1]
-            res[hk] = (lvl, exp)
+            # LEVEL from the SAVE (the live decoy is dead; the live level is behind the cipher, off-
+            # limits) — informative for the overlay/diagnostics. EXP is FORCED None: the live WITHIN-
+            # LEVEL exp is gone. The accumulator gets save EXP directly via xp_feed in meter_windows.py.
+            lvl = (save_heroes or {}).get(hk, (None, None))[0]
+            res[hk] = (lvl, None)
     except Exception:
         return {}
     return res

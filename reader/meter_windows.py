@@ -921,13 +921,10 @@ def run(hz, output_dir, debug=False):
         # decoy died in 1.00.20). save_heroes = {heroKey: (level, exp)} for the deployed heroes.
         _sh = save.read_heroes(reader, p)
         pl0 = build.read_live_party(reader, sm, hero_cat, _sh)
-        # LIVE per-hero xp accumulator (metrics.xp.PartyXpAccumulator) — the primary LIVE of the
-        # xp chain. Run state is born HERE (never only at close — that would leak the previous run) and is
-        # SEEDED with the t=0 party. Whoever enters LATER (late deploy / a dead hero from the previous run who
-        # revives mid-run) seeds on their 1st sighting in the 1s snapshot — the fix for the +0xp that the
-        # endpoint delta (exp_start only at t=0) gave a hero outside the baseline.
         xpacc = xp.PartyXpAccumulator()
-        xpacc.update(pl0)
+        # Seed accumulator with SAVE EXP for deployed heroes (read_live_party forces exp=None).
+        xp_feed0 = {hk: (lvl, exp) for hk, (lvl, exp) in _sh.items() if hk in pl0}
+        xpacc.update(xp_feed0)
         return {"dps": DpsTracker(), "mobs": 0, "start": time.time(),
                 "gold_start": save.read_gold(reader, p) or 0,
                 # LIVE combat-gold baseline at the START (delta at close = the run's gold).
@@ -1423,13 +1420,16 @@ def run(hz, output_dir, debug=False):
                 # read_live_party can source level from it (the live decoy died in 1.00.20).
                 psd = save.pick_live_psd(reader, psd_list)
                 heroes_now = save.read_heroes(reader, psd) if psd else {}
-                # LIVE party identity (heroKeys, gated on hero_cat); level from heroes_now, exp None
-                # (live within-level exp is gone -> the accumulator stays empty -> honest save fallback).
+                # LIVE party identity (heroKeys, gated on hero_cat)
                 pl_end = build.read_live_party(reader, sm, hero_cat, heroes_now)
                 R["party_seen"].update(dict.fromkeys(pl_end))
-                # LIVE xp accumulator: 1.00.20 decodes the Obscured cipher (hiddenValue XOR key)
-                # to get live within-level XP. Falls back to save if decoding fails.
-                R["xp_acc"].update(pl_end)
+                # Feed accumulator with SAVE EXP at 1Hz for deployed heroes only.
+                # Bypasses read_live_party's forced exp=None. Accumulator sees
+                # save EXP deltas when the game writes checkpoints — 1s granularity
+                # captures all checkpoint XP without boundary-timing distortion.
+                xp_feed = {hk: (lvl, exp) for hk, (lvl, exp)
+                           in heroes_now.items() if hk in pl_end}
+                R["xp_acc"].update(xp_feed)
                 # 64 live FINAL stats per hero (same read as the close). Additive in live.json:
                 # feeds the per-hero effective-resistance tooltip in the overlay. never-raises -> {}.
                 live_stats = build.read_live_stats_by_hero(reader, sm)
