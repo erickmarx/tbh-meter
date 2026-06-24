@@ -926,8 +926,12 @@ def run(hz, output_dir, debug=False):
         # SEEDED with the t=0 party. Whoever enters LATER (late deploy / a dead hero from the previous run who
         # revives mid-run) seeds on their 1st sighting in the 1s snapshot — the fix for the +0xp that the
         # endpoint delta (exp_start only at t=0) gave a hero outside the baseline.
+        # 1.00.20: seed with SAVE EXP bypassing read_live_party's forced exp=None.
+        # Accumulator tracks checkpoint deltas at 1Hz from t=0 — NO delayed seeding.
         xpacc = xp.PartyXpAccumulator()
-        xpacc.update(pl0)
+        xp_feed0 = {hk: (lvl, exp) for hk, (lvl, exp)
+                    in _sh.items() if hk in pl0}
+        xpacc.update(xp_feed0)
         return {"dps": DpsTracker(), "mobs": 0, "start": time.time(),
                 "gold_start": save.read_gold(reader, p) or 0,
                 # LIVE combat-gold baseline at the START (delta at close = the run's gold).
@@ -1055,7 +1059,10 @@ def run(hz, output_dir, debug=False):
         # LIVE party identity (gated on hero_cat); level/exp from heroes_end (the save snapshot already
         # read above) since the live decoy died in 1.00.20. never-raises -> {} on failure.
         pl_end = build.read_live_party(reader, sm, hero_cat, heroes_end)
-        xpacc.update(pl_end)
+        # Final tick: feed save EXP for deployed heroes (bypasses read_live_party's forced exp=None).
+        xp_feed_end = {hk: (lvl, exp) for hk, (lvl, exp)
+                       in heroes_end.items() if hk in pl_end}
+        xpacc.update(xp_feed_end)
         R["party_seen"].update(dict.fromkeys(pl_end))  # live at close = seen (live_keys ⊇ acc)
         # XP per-run = the LIVE one (real-time, exact). The save is a lagging snapshot (useless delta: 0 or a
         # ~10M jump depending on where the save-write falls in the run = jitter) -> NO longer recorded; only a silent
@@ -1065,6 +1072,11 @@ def run(hz, output_dir, debug=False):
         xp_live_ok = xp_total_live is not None
         xp_best = round(xp_total_live, 2) if xp_live_ok else xp_gain
         xp_src = "live" if xp_live_ok else "save"
+        diag(f"[xp-acc] total={xp_total_live} "
+             f"acc_state={ {hk: {'lvl':st['lv'],'exp':st['exp'],'acc':st['acc']} for hk,st in xpacc._heroes.items()} } "
+             f"save_delta={xp_gain} xp_by_hero={xp_by_hero} "
+             f"heroes_start={R['heroes_start']} "
+             f"heroes_end={ {k: v[1] for k, v in heroes_end.items()} }")
         # xp was read if the live one happened (the accumulator saw someone) OR there was save data (heroes_end). Neither ->
         # err in the envelope (same logic as gold: didn't-read != gained-zero).
         xp_ok = xp_live_ok or bool(heroes_end)
@@ -1427,11 +1439,13 @@ def run(hz, output_dir, debug=False):
                 # (live within-level exp is gone -> the accumulator stays empty -> honest save fallback).
                 pl_end = build.read_live_party(reader, sm, hero_cat, heroes_now)
                 R["party_seen"].update(dict.fromkeys(pl_end))
-                # LIVE xp accumulator (the SAME object that closes the run in close_run): integrates the
-                # per-hero tick — the 1st sighting seeds the baseline; then sums increments > 0
-                # (level-up by the curve). Since 1.00.20 read_live_party yields exp=None, so the acc sees
-                # nobody and total() stays None -> the overlay xp uses the SAVE fallback below (honest).
-                R["xp_acc"].update(pl_end)
+                # Feed accumulator with SAVE EXP at 1Hz for deployed heroes only.
+                # Bypasses read_live_party's forced exp=None. Accumulator sees
+                # save EXP deltas when the game writes checkpoints — 1s granularity
+                # captures all checkpoint XP without boundary-timing distortion.
+                xp_feed = {hk: (lvl, exp) for hk, (lvl, exp)
+                           in heroes_now.items() if hk in pl_end}
+                R["xp_acc"].update(xp_feed)
                 # 64 live FINAL stats per hero (same read as the close). Additive in live.json:
                 # feeds the per-hero effective-resistance tooltip in the overlay. never-raises -> {}.
                 live_stats = build.read_live_stats_by_hero(reader, sm)
