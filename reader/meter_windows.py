@@ -1066,15 +1066,10 @@ def run(hz, output_dir, debug=False):
                        in heroes_end.items() if hk in pl_end}
         xpacc.update(xp_feed_end)
         R["party_seen"].update(dict.fromkeys(pl_end))  # live at close = seen (live_keys ⊇ acc)
-        # XP per-run primary source: save_delta (heroes_end − heroes_start).
-        # The save delta IS the ground truth for non-level-up runs — it captures
-        # all checkpoint XP without depending on 1Hz sampling timing.
-        # Accumulator is only used for level-up bridging (xp_through_levelup),
-        # where save_delta fails because HeroExp resets to ~0 on level-up.
+        # XP per-run: accumulator (live ObscuredFloat decode at 1Hz) is primary.
+        # Falls back to save_delta only when accumulator saw nobody.
         xp_total_live = xpacc.total()
-        any_levelup = xp_total_live is not None and any(
-            st["levelup"] for st in xpacc._heroes.values())
-        if xp_total_live is not None and any_levelup:
+        if xp_total_live is not None:
             xp_best = round(xp_total_live, 2)
             xp_src = "live"
         else:
@@ -1085,9 +1080,9 @@ def run(hz, output_dir, debug=False):
              f"save_delta={xp_gain} xp_by_hero={xp_by_hero} "
              f"heroes_start={R['heroes_start']} "
              f"heroes_end={ {k: v[1] for k, v in heroes_end.items()} }")
-        # xp was read if there's save data (heroes_end) or accumulator level-up bridge.
+        # xp was read if accumulator has data or save has hero data.
         # Neither -> err in the envelope (same logic as gold: didn't-read != gained-zero).
-        xp_ok = (xp_total_live is not None and any_levelup) or bool(heroes_end)
+        xp_ok = (xp_total_live is not None) or bool(heroes_end)
         # The artifact = only the heroes ACTUALLY deployed in this run (live party = StageManager.HeroList).
         # The save lists the arranged party/roster (playing solo with the Ranger the save lists all 6) -> filter
         # by live_keys: pl_start ∪ party_seen (an sm that resolves LATE enters via the 1s snapshot).
