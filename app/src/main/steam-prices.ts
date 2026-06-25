@@ -93,10 +93,6 @@ export function clearPriceCache(): void {
 // Helpers
 // ---------------------------------------------------------------------------
 
-class SteamRateLimitError extends Error {
-  constructor() { super("Steam rate limited"); }
-}
-
 function isMaterial(itemKey: number): boolean {
   return itemKey < 300_000;
 }
@@ -105,18 +101,6 @@ function isFresh(cached: PriceEntry, _itemKey: number): boolean {
   if (cached.price === null) return false;
   const ttl = isMaterial(_itemKey) ? MATERIAL_TTL_MS : EQUIPMENT_TTL_MS;
   return Date.now() - cached.fetchedAt < ttl;
-}
-
-function parseSteamPrice(s: string | undefined): number | null {
-  if (!s) return null;
-  const n = Number(s.replace(/[$,]/g, ""));
-  return Number.isFinite(n) ? n : null;
-}
-
-function parseSteamVolume(s: string | undefined): number {
-  if (!s) return 0;
-  const n = Number(s.replace(/,/g, ""));
-  return Number.isFinite(n) ? n : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -157,94 +141,6 @@ async function fetchBatchFromApi(itemKeys: number[]): Promise<Map<number, PriceE
   }
 
   return out;
-}
-
-// ---------------------------------------------------------------------------
-// Steam Community Market (fallback)
-// ---------------------------------------------------------------------------
-
-/** Grade name used in Steam market_hash_name suffix (e.g. " (Arcana)"). */
-const STEAM_GRADE_SUFFIX: Record<number, string> = {
-  9: " (Cosmic)",
-  8: " (Divine)",
-  7: " (Celestial)",
-  6: " (Beyond)",
-  5: " (Arcana)",
-  4: " (Immortal)",
-  3: " (Legendary)",
-  2: " (Rare)",
-  1: " (Uncommon)",
-  0: " (Common)",
-};
-
-/**
- * Try Steam priceoverview with one or more name variants.
- * Equipment items need the grade suffix (e.g. "Elite Bow (Arcana) A").
- * We try bare name first, then name + grade suffix, then with variant letters A/B/C.
- */
-async function fetchOneFromSteam(itemKey: number, name: string, gradeId: number | null): Promise<PriceEntry | null> {
-  const candidates: string[] = [name];
-
-  // Equipment: also try with grade suffix
-  if (itemKey >= 300_000 && gradeId != null) {
-    const suffix = STEAM_GRADE_SUFFIX[gradeId] ?? "";
-    if (suffix) {
-      candidates.push(`${name}${suffix}`);
-      // Try common variant letters
-      for (const letter of ["A", "B", "C"]) {
-        candidates.push(`${name}${suffix} ${letter}`);
-      }
-    }
-  }
-
-  for (const marketName of candidates) {
-    const encoded = encodeURIComponent(marketName);
-    const url = `https://steamcommunity.com/market/priceoverview/?appid=3678970&currency=1&market_hash_name=${encoded}`;
-
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-      });
-    } catch (err) {
-      console.log(`[steam-prices] Steam fetch error: "${marketName}" — ${err}`);
-      continue;
-    }
-
-    if (!res.ok) {
-      console.log(`[steam-prices] Steam HTTP ${res.status} for "${marketName}"`);
-      if (res.status === 429) throw new SteamRateLimitError();
-      continue;
-    }
-
-    const data = (await res.json()) as {
-      success: boolean;
-      lowest_price?: string;
-      median_price?: string;
-      volume?: string;
-    };
-
-    if (!data.success) {
-      console.log(`[steam-prices] Steam !success for "${marketName}"`);
-      continue;
-    }
-
-    const price = parseSteamPrice(data.median_price ?? data.lowest_price);
-    if (price == null) {
-      console.log(`[steam-prices] Steam no-price for "${marketName}": ${JSON.stringify(data)}`);
-      continue;
-    }
-
-    console.log(`[steam-prices] Steam OK: "${marketName}" → $${price}`);
-    return {
-      itemKey, name: marketName, price,
-      volume: parseSteamVolume(data.volume),
-      source: "steam",
-      fetchedAt: Date.now(),
-    };
-  }
-
-  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -294,7 +190,6 @@ export async function fetchLivePrices(
   // Phase 1: TBH API (batched, fast)
   const apiKeys = toFetch.map((it) => it.itemKey);
   const nameMap = new Map(toFetch.map((it) => [it.itemKey, it.name]));
-  const apiMissed: { itemKey: number; name: string; gradeId: number | null }[] = [];
 
   for (let i = 0; i < apiKeys.length; i += MAX_KEYS_PER_BATCH) {
     const batch = apiKeys.slice(i, i + MAX_KEYS_PER_BATCH);
@@ -312,75 +207,22 @@ export async function fetchLivePrices(
         }
       }
 
-      // Track items the API didn't return → try Steam fallback
+      // Track items the API didn't return — notify as unavailable.
+      // Steam individual priceoverview is too rate-limited to use as fallback.
+      // Items will get prices when the TBH API cache updates (or on next tab open).
       for (const itemKey of batch) {
         if (!results.has(itemKey)) {
           const name = nameMap.get(itemKey) ?? "";
-          const gradeId = toFetch.find((it) => it.itemKey === itemKey)?.gradeId ?? null;
-          apiMissed.push({ itemKey, name, gradeId });
+          onPrice({ itemKey, name, price: null, volume: 0, source: "api", fetchedAt: Date.now() });
         }
       }
     } catch {
-      // API failure → all items in batch go to Steam fallback
-      console.error(`[steam-prices] TBH API failed for batch (${batch.length} keys), falling back to Steam`);
+      // API failure → notify all items in batch as unavailable
+      console.error(`[steam-prices] TBH API failed for batch (${batch.length} keys)`);
       for (const itemKey of batch) {
         const name = nameMap.get(itemKey) ?? "";
-        apiMissed.push({ itemKey, name, gradeId: null });
+        onPrice({ itemKey, name, price: null, volume: 0, source: "api", fetchedAt: Date.now() });
       }
-    }
-  }
-
-  // Phase 2: Steam fallback for items the API missed
-  // Individual priceoverview calls are rate-limited aggressively. On 429, we
-  // back off exponentially and abort after 3 consecutive failures.
-  let consecutive429 = 0;
-  for (let i = 0; i < apiMissed.length; i++) {
-    const { itemKey, name, gradeId } = apiMissed[i];
-    let steamEntry: PriceEntry | null = null;
-
-    try {
-      steamEntry = await fetchOneFromSteam(itemKey, name, gradeId);
-    } catch (err) {
-      if (err instanceof SteamRateLimitError) {
-        consecutive429++;
-        if (consecutive429 >= 3) {
-          console.warn(`[steam-prices] Aborting Steam fallback after ${consecutive429} consecutive 429s (${apiMissed.length - i} items skipped)`);
-          for (let j = i; j < apiMissed.length; j++) {
-            const skipped = apiMissed[j];
-            onPrice({ itemKey: skipped.itemKey, name: skipped.name, price: null, volume: 0, source: "steam", fetchedAt: Date.now() });
-          }
-          return;
-        }
-        // Wait and retry
-        const backoff = consecutive429 * 10_000;
-        console.log(`[steam-prices] 429 #${consecutive429}, waiting ${backoff / 1000}s before retry...`);
-        await new Promise((r) => setTimeout(r, backoff));
-        try {
-          steamEntry = await fetchOneFromSteam(itemKey, name, gradeId);
-          consecutive429 = 0;
-        } catch (err2) {
-          if (err2 instanceof SteamRateLimitError) {
-            consecutive429++;
-          }
-        }
-      }
-    }
-
-    if (steamEntry) {
-      consecutive429 = 0;
-      console.log(`[steam-prices] Steam OK: ${name} (${itemKey}) → $${steamEntry.price}`);
-      cache.set(itemKey, steamEntry);
-      persistCache();
-      onPrice(steamEntry);
-    } else {
-      onPrice({
-        itemKey, name, price: null, volume: 0, source: "steam", fetchedAt: Date.now(),
-      });
-    }
-
-    // Normal rate-limit delay
-    if (i < apiMissed.length - 1) {
-      await new Promise((r) => setTimeout(r, 3000));
     }
   }
 }
