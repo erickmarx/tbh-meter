@@ -390,6 +390,7 @@ function ItemTooltip({
     <div className="flex flex-col gap-0.5 text-xs whitespace-nowrap">
       {/* Name */}
       <span className="font-semibold text-zinc-100">{item.name}</span>
+      <span className="text-[9px] text-zinc-600">ID: {item.itemKey}</span>
 
       {/* Material details */}
       {material && (
