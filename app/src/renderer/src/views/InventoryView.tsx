@@ -272,7 +272,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [tooltipAbove, setTooltipAbove] = useState(true);
   const [hovered, setHovered] = useState(false);
-  const [tooltipPos, setTooltipPos] = useState<{ top: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
 
   const handleEnter = (): void => {
     setHovered(true);
@@ -286,7 +286,10 @@ function ItemCard({ item }: { item: InventoryItem }) {
         const above = spaceAbove > tooltipH + 8 || spaceAbove > spaceBelow;
         setTooltipAbove(above);
 
-        setTooltipPos({ top: above ? rect.top - 6 : rect.bottom + 6 });
+        setTooltipPos({
+          top: above ? rect.top - 6 : rect.bottom + 6,
+          left: rect.left + rect.width / 2,
+        });
       }
       hover(true);
     }, 300);
@@ -360,7 +363,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
           style={{
             background: "#18181b",
             top: tooltipPos.top,
-            left: "50%",
+            left: tooltipPos.left,
             transform: `translate(-50%, ${tooltipAbove ? "-100%" : "0"})`,
           }}
         >
