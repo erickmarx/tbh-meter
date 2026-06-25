@@ -6,8 +6,10 @@
 
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
-import { API_URL } from "./config.js";
 import { getAccessToken } from "./auth.js";
+
+/** Steam prices always use the production API — the local dev server may not have /steam/prices. */
+const STEAM_API_URL = "https://api.tbherohelper.com";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -124,7 +126,7 @@ async function fetchBatchFromApi(itemKeys: number[]): Promise<Map<number, PriceE
   if (itemKeys.length === 0) return out;
 
   const keysParam = itemKeys.join(",");
-  const url = `${API_URL}/steam/prices?keys=${encodeURIComponent(keysParam)}`;
+  const url = `${STEAM_API_URL}/steam/prices?keys=${encodeURIComponent(keysParam)}`;
 
   const token = await getAccessToken();
   const headers: Record<string, string> = {};
