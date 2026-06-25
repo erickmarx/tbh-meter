@@ -9,6 +9,8 @@ import { clampCooldownMin } from "../shared/ipc-types.js";
 import { tMain } from "./i18n.js";
 import { listRuns, getRun, clearAllRuns, pruneToMaxRuns } from "./runs-store.js";
 import { getRunsSource, setFavoritePredicate } from "./sources/runs-source.js";
+import { getInventoryData } from "./inventory-source.js";
+import { getItemPrices } from "./steam-prices.js";
 import { isFavorite, toggleFavorite, invalidateFavoritesCache } from "./favorites-store.js";
 import { getLiveSource } from "./sources/live-source.js";
 import {
@@ -280,6 +282,95 @@ export function registerIpcHandlers(deps: IpcDeps): void {
   // The CURRENT session = the session of the newest run, DERIVED app-side (Redesign 2) — same source
   // as the session-stats URL above (not the reader's vestigial session.json). null when no runs yet.
   ipcMain.handle("meter:get-current-session", () => getRunsSource().all()[0]?.sessionId ?? null);
+
+  // ── Inventory ──────────────────────────────────────────────────────────
+  ipcMain.handle("meter:get-inventory", async () => {
+    const dir = resolveOutputDir();
+    if (!dir) return null;
+
+    const data = await getInventoryData(dir);
+    if (!data) return null;
+
+    // Collect unique itemKeys for price lookup
+    const allItems = [...(data.inventory ?? []), ...(data.stash ?? [])];
+    const uniqueItems = new Map<number, string>();
+    for (const it of allItems) {
+      if (it.itemKey > 0 && !uniqueItems.has(it.itemKey)) {
+        uniqueItems.set(it.itemKey, it.name);
+      }
+    }
+
+    const prices =
+      uniqueItems.size > 0
+        ? await getItemPrices(
+            [...uniqueItems.entries()].map(([itemKey, name]) => ({ itemKey, name })),
+          )
+        : new Map();
+
+    // Aggregate materials by itemKey (count instances); equipment stays individual
+    const aggregate = (
+      items: typeof allItems,
+    ): import("../shared/ipc-types.js").InventoryItem[] => {
+      const groups = new Map<
+        number,
+        { name: string; items: typeof allItems }
+      >();
+      for (const it of items) {
+        const g = groups.get(it.itemKey) ?? { name: it.name, items: [] };
+        g.items.push(it);
+        groups.set(it.itemKey, g);
+      }
+      return [...groups.entries()].map(([itemKey, g]) => {
+        const p = prices.get(itemKey);
+        const count = g.items.length;
+        const price = p?.price ?? null;
+        return {
+          itemKey,
+          uniqueId: g.items[0].uniqueId,
+          name: g.name,
+          slotId: g.items[0].slotId,
+          gradeId: g.items[0].gradeId,
+          level: g.items[0].level,
+          count,
+          price,
+          volume: p?.volume ?? 0,
+          totalValue: price != null ? +(price * count).toFixed(2) : null,
+        };
+      });
+    };
+
+    const invItems = data.inventory ? aggregate(data.inventory) : null;
+    const stashItems = data.stash ? aggregate(data.stash) : null;
+
+    const allPriced = [...(invItems ?? []), ...(stashItems ?? [])];
+    const withPrice = allPriced.filter((it) => it.price != null);
+    const grandTotal = +withPrice
+      .reduce((s, it) => s + (it.totalValue ?? 0), 0)
+      .toFixed(2);
+
+    const sources = [...prices.values()].map((p) => p.source);
+    const fetchedAts = [...prices.values()]
+      .map((p) => p.fetchedAt)
+      .filter(Boolean);
+
+    return {
+      inventory: invItems,
+      stash: stashItems,
+      runes: data.runes,
+      source: data.source,
+      sourceRunId: data.sourceRunId,
+      grandTotal,
+      pricedCount: withPrice.length,
+      unpricedCount: allPriced.length - withPrice.length,
+      priceSource: (
+        sources.length === 0 ? "cache" as const
+        : sources.every((s) => s === "steam") ? "steam" as const
+        : sources.every((s) => s === "cache") ? "cache" as const
+        : "mixed" as const
+      ),
+      pricesFetchedAt: fetchedAts.length > 0 ? Math.min(...fetchedAts) : null,
+    };
+  });
 
   // Renderer error reports (window error / unhandledrejection) -> Discord webhook.
   // Inputs are untrusted: type-check and cap before forwarding.

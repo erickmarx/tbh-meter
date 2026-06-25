@@ -132,6 +132,8 @@ const meter: MeterApi = {
 
   getCurrentSession: () => ipcRenderer.invoke("meter:get-current-session"),
 
+  getInventory: () => ipcRenderer.invoke("meter:get-inventory"),
+
   reportError: (context, message, stack) =>
     ipcRenderer.send("meter:report-error", context, message, stack),
 

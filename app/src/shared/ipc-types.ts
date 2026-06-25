@@ -35,6 +35,36 @@ export function clampCooldownMin(value: number | null | undefined): number {
   return Math.min(COOLDOWN_MAX_MINUTES, Math.max(COOLDOWN_MIN_MINUTES, Math.round(value)));
 }
 export interface RunIndexEntry { id: string; ts: number; sessionId: string; status: RunStatus; /** The converter's quality verdict — drives the display filter (PR6). Optional: a legacy-mirror log produced before the converter (PR3) has none, treated as visible. */ quality?: RunQuality; stage: string; /** Raw stage number, carried so the duration filter can honour the x-10 (ACT_BOSS_STAGE_NO) exemption without fetching the full record. */ stageNo: number | null; mode: string; dps: number; totalDamage: number; goldGained: number; xpGained: number; xpPerSec: number; goldPerSec: number; mobs: number; totalMobs: number | null; duration: number; clearTime: number; schemaVersion: number; /** Top-3 deployed heroes. `xpGained` (per-hero run XP) is carried so the Leveling Planner can measure real per-(hero,stage) XP off the index without an N+1 getRun fetch; absent on older records that didn't persist per-hero gain. */ party: { heroKey: number; class: string; level: number; xpGained?: number }[]; drops?: RunDrop[]; /** Favorite flag (Feature 3) — a main-owned sidecar (favorites.json), NOT a field on the immutable logs record. Stamped onto the index so the renderer renders the star + can filter "favorites only". A favorited run is exempt from auto-clean + clear-all. */ favorite?: boolean; }
+/** An item in the inventory/stash view, with pricing. */
+export interface InventoryItem {
+  itemKey: number;
+  uniqueId: string;
+  name: string;
+  slotId: number | null;
+  gradeId: number | null;
+  level: number | null;
+  /** Stack count (>1 for materials). */
+  count: number;
+  /** USD unit price, or null when market has no listings. */
+  price: number | null;
+  /** 24h volume on Steam market. */
+  volume: number;
+  /** Total value = count × price. null when price is null. */
+  totalValue: number | null;
+}
+/** Full inventory snapshot with pricing. */
+export interface InventorySnapshot {
+  inventory: InventoryItem[] | null; // null = unreadable
+  stash: InventoryItem[] | null;
+  runes: { key: number; level: number }[] | null;
+  source: "live" | "raw";
+  sourceRunId: string | null;
+  grandTotal: number;
+  pricedCount: number;
+  unpricedCount: number;
+  priceSource: "steam" | "cache" | "mixed";
+  pricesFetchedAt: number | null;
+}
 /** Auto-update lifecycle, surfaced to the renderer. Only ever advances past "idle" on
  *  the packaged Windows NSIS install; elsewhere the updater stays dormant. */
 export type UpdateStatus =
@@ -178,6 +208,9 @@ export interface MeterApi {
   /** The reader's current session id (from session.json), or null if none yet. Persists
    *  across app restarts, so the runs list can mark the current session even between runs. */
   getCurrentSession(): Promise<string | null>;
+  /** Account inventory/stash from live game memory (agent) or latest raw record,
+   *  with Steam Community Market pricing. Resolves null when no data source exists. */
+  getInventory(): Promise<InventorySnapshot | null>;
   /** Forward a renderer error to the main process's Discord error reporting. */
   reportError(context: string, message: string, stack?: string): void;
   windowControls: { minimize(): void; close(): void };
