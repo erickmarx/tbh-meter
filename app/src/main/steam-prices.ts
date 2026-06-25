@@ -8,6 +8,7 @@
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { API_URL } from "./config.js";
+import { getAccessToken } from "./auth.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -114,9 +115,14 @@ async function fetchBatchFromApi(
   const keysParam = itemKeys.join(",");
   const url = `${API_URL}/steam/prices?keys=${encodeURIComponent(keysParam)}`;
 
+  // Add auth when signed in (endpoint is public, but auth gives higher rate limits)
+  const token = await getAccessToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   let res: Response;
   try {
-    res = await fetch(url);
+    res = await fetch(url, { headers });
   } catch {
     throw new Error(`TBH API fetch failed`);
   }
