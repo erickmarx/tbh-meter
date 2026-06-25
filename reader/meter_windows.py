@@ -926,13 +926,9 @@ def run(hz, output_dir, debug=False):
         # SEEDED with the t=0 party. Whoever enters LATER (late deploy / a dead hero from the previous run who
         # revives mid-run) seeds on their 1st sighting in the 1s snapshot — the fix for the +0xp that the
         # endpoint delta (exp_start only at t=0) gave a hero outside the baseline.
-        # 1.00.20: seed with SAVE EXP bypassing read_live_party's forced exp=None.
-        # Accumulator tracks checkpoint deltas at 1Hz from t=0 — NO delayed seeding.
-        # Seed ALL save heroes, not just pl0: pl0 may be empty between runs
-        # (StageManager.HeroList temporarily cleared), causing the first tick to seed
-        # with post-checkpoint EXP → all pre-checkpoint delta lost.
+        # 1.00.20: seed with LIVE EXP from read_live_party (ObscuredFloat decode).
         xpacc = xp.PartyXpAccumulator()
-        xp_feed0 = {hk: (lvl, exp) for hk, (lvl, exp) in _sh.items()}
+        xp_feed0 = {hk: (lvl, exp) for hk, (lvl, exp) in pl0.items()}
         xpacc.update(xp_feed0)
         return {"dps": DpsTracker(), "mobs": 0, "start": time.time(),
                 "gold_start": save.read_gold(reader, p) or 0,
@@ -1061,9 +1057,9 @@ def run(hz, output_dir, debug=False):
         # LIVE party identity (gated on hero_cat); level/exp from heroes_end (the save snapshot already
         # read above) since the live decoy died in 1.00.20. never-raises -> {} on failure.
         pl_end = build.read_live_party(reader, sm, hero_cat, heroes_end)
-        # Final tick: feed save EXP for deployed heroes (bypasses read_live_party's forced exp=None).
+        # Final tick: feed LIVE EXP for deployed heroes (from read_live_party).
         xp_feed_end = {hk: (lvl, exp) for hk, (lvl, exp)
-                       in heroes_end.items() if hk in pl_end}
+                       in pl_end.items()}
         xpacc.update(xp_feed_end)
         R["party_seen"].update(dict.fromkeys(pl_end))  # live at close = seen (live_keys ⊇ acc)
         # XP per-run: accumulator (live ObscuredFloat decode at 1Hz) is primary.
@@ -1439,12 +1435,10 @@ def run(hz, output_dir, debug=False):
                 # (live within-level exp is gone -> the accumulator stays empty -> honest save fallback).
                 pl_end = build.read_live_party(reader, sm, hero_cat, heroes_now)
                 R["party_seen"].update(dict.fromkeys(pl_end))
-                # Feed accumulator with SAVE EXP at 1Hz for deployed heroes only.
-                # Bypasses read_live_party's forced exp=None. Accumulator sees
-                # save EXP deltas when the game writes checkpoints — 1s granularity
-                # captures all checkpoint XP without boundary-timing distortion.
+                # Feed accumulator with LIVE EXP at 1Hz from read_live_party
+                # (ObscuredFloat decode). Bypasses the save entirely.
                 xp_feed = {hk: (lvl, exp) for hk, (lvl, exp)
-                           in heroes_now.items() if hk in pl_end}
+                           in pl_end.items()}
                 R["xp_acc"].update(xp_feed)
                 # DIAG: per-tick PSD tracking — shows save EXP at every 1Hz tick
                 # to diagnose checkpoint timing vs accumulator capture
