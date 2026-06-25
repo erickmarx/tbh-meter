@@ -277,7 +277,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
     openTimer.current = setTimeout(() => {
       if (cardRef.current) {
         const rect = cardRef.current.getBoundingClientRect();
-        setTooltipAbove(rect.top > 120);
+        setTooltipAbove(rect.top > 180);
       }
       hover(true);
     }, 300);
