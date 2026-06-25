@@ -80,12 +80,18 @@ function formatTimeAgo(ms: number, t: Translate): string {
 
 function sortItems(items: InventoryItem[], mode: SortMode): InventoryItem[] {
   return [...items].sort((a, b) => {
+    // Tradable items always sort before non-tradable
+    const aTradable = isItemTradable(a);
+    const bTradable = isItemTradable(b);
+    if (aTradable !== bTradable) return aTradable ? -1 : 1;
+
     if (mode === "grade") {
       const g = (b.gradeId ?? -1) - (a.gradeId ?? -1);
       if (g !== 0) return g;
       const l = (b.level ?? 0) - (a.level ?? 0);
       if (l !== 0) return l;
     }
+    // Price sort: total value (count × unit price) descending
     return (b.totalValue ?? 0) - (a.totalValue ?? 0);
   });
 }
