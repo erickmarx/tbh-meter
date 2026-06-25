@@ -269,6 +269,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
   const gradeName = item.gradeId != null ? (GRADE_NAMES[item.gradeId] ?? "") : "";
   const { open, anchorRef, hover } = useHoverTooltip<HTMLDivElement>();
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastMouse = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
   const [hovered, setHovered] = useState(false);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
@@ -287,13 +288,15 @@ function ItemCard({ item }: { item: InventoryItem }) {
 
   const handleEnter = (e: React.MouseEvent): void => {
     setHovered(true);
+    lastMouse.current = { x: e.clientX, y: e.clientY };
     openTimer.current = setTimeout(() => {
-      updateTooltipPos(e.clientX, e.clientY);
+      updateTooltipPos(lastMouse.current.x, lastMouse.current.y);
       hover(true);
     }, 300);
   };
 
   const handleMove = (e: React.MouseEvent): void => {
+    lastMouse.current = { x: e.clientX, y: e.clientY };
     if (!open) return;
     updateTooltipPos(e.clientX, e.clientY);
   };
