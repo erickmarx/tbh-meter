@@ -308,9 +308,9 @@ function ItemCard({ item }: { item: InventoryItem }) {
           )}
         </div>
         <div className="flex flex-col items-end">
-          {item.price != null ? (
+          {item.totalValue != null ? (
             <span className="rounded bg-emerald-500/10 px-1 text-[10px] font-bold tabular-nums leading-tight text-emerald-400">
-              ${item.price.toFixed(2)}
+              ${item.totalValue.toFixed(2)}
             </span>
           ) : (
             <span className="text-[10px] tabular-nums leading-tight text-zinc-600">—</span>
