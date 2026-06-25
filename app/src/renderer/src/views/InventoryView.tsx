@@ -226,9 +226,10 @@ export function InventoryView() {
         <button
           onClick={() => setSortBy((s) => (s === "price" ? "grade" : "price"))}
           className="ml-auto flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-zinc-500 transition-colors hover:bg-surface-700 hover:text-zinc-300"
+          title={sortBy === "price" ? "Currently sorted by price. Click to sort by grade." : "Currently sorted by grade. Click to sort by price."}
         >
           <ArrowUpDown className="size-3" />
-          {sortBy === "price" ? "Price" : "Grade"}
+          Sort: {sortBy === "price" ? "Price" : "Grade"}
         </button>
       </div>
 
