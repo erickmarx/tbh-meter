@@ -19,22 +19,12 @@ import { cn } from "~/lib/utils";
 // Constants
 // ---------------------------------------------------------------------------
 
-// Outline color per grade
-const GRADE_OUTLINE: Record<number, string> = {
-  9: "outline-[rgba(239,68,68,0.25)]", 8: "outline-[rgba(236,72,153,0.25)]",
-  7: "outline-[rgba(6,182,212,0.25)]", 6: "outline-[rgba(139,92,246,0.25)]",
-  5: "outline-[rgba(245,158,11,0.25)]", 4: "outline-[rgba(239,68,68,0.20)]",
-  3: "outline-[rgba(249,115,22,0.22)]", 2: "outline-[rgba(59,130,246,0.18)]",
-  1: "outline-[rgba(34,197,94,0.15)]",  0: "outline-[rgba(161,161,170,0.12)]",
-};
-
-// RGB values per grade for radial glow overlay
-const OUTLINE_RGB: Record<number, string> = {
-  9: "rgba(239,68,68,0.12)", 8: "rgba(236,72,153,0.12)",
-  7: "rgba(6,182,212,0.12)", 6: "rgba(139,92,246,0.12)",
-  5: "rgba(245,158,11,0.12)", 4: "rgba(239,68,68,0.10)",
-  3: "rgba(249,115,22,0.10)", 2: "rgba(59,130,246,0.08)",
-  1: "rgba(34,197,94,0.06)",
+// Background fill per grade (solid color with opacity)
+const GRADE_FILL: Record<number, string> = {
+  9: "bg-red-500/20", 8: "bg-pink-500/20", 7: "bg-cyan-500/20",
+  6: "bg-violet-500/20", 5: "bg-amber-500/20", 4: "bg-red-500/15",
+  3: "bg-orange-500/20", 2: "bg-blue-500/15", 1: "bg-green-500/12",
+  0: "bg-surface-800/80",
 };
 
 const GRADE_NAMES: Record<number, string> = {
@@ -274,7 +264,7 @@ function FilterChip({ active, onClick, label }: { active: boolean; onClick: () =
 function ItemCard({ item }: { item: InventoryItem }) {
   const material = isMaterial(item);
   const tradable = isItemTradable(item);
-  const gradeOutline = item.gradeId != null ? (GRADE_OUTLINE[item.gradeId] ?? "") : "";
+  const gradeFill = item.gradeId != null ? (GRADE_FILL[item.gradeId] ?? "") : "bg-surface-800/80";
   const gradeName = item.gradeId != null ? (GRADE_NAMES[item.gradeId] ?? "") : "";
   const { open, anchorRef, hover } = useHoverTooltip<HTMLDivElement>();
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -306,9 +296,9 @@ function ItemCard({ item }: { item: InventoryItem }) {
         (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
       className={cn(
-        "relative flex cursor-pointer flex-col items-center justify-center rounded outline outline-1 -outline-offset-1",
-        "bg-surface-800/80 transition-[outline,transform] duration-100",
-        gradeOutline || "outline-[rgba(161,161,170,0.12)]",
+        "relative flex cursor-pointer flex-col items-center justify-center rounded outline outline-1 -outline-offset-1 outline-white/[0.08]",
+        "transition-[transform] duration-100",
+        gradeFill,
         !tradable && "opacity-50",
         hovered && "scale-105",
       )}
@@ -316,16 +306,6 @@ function ItemCard({ item }: { item: InventoryItem }) {
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
-      {/* Glow overlay */}
-      {item.gradeId != null && item.gradeId > 0 && (
-        <div
-          className="pointer-events-none absolute inset-0 rounded"
-          style={{
-            background: `radial-gradient(ellipse at center, ${OUTLINE_RGB[item.gradeId] ?? "transparent"}, transparent 70%)`,
-          }}
-        />
-      )}
-
       {/* Hover highlight */}
       <div
         className="pointer-events-none absolute inset-0 rounded bg-white/[0.08] opacity-0 transition-opacity duration-100"
