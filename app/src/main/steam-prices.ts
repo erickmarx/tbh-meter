@@ -202,10 +202,13 @@ async function fetchOneFromSteam(itemKey: number, name: string, gradeId: number 
       res = await fetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
       });
-    } catch { continue; }
+    } catch (err) {
+      console.log(`[steam-prices] Steam fetch error: "${marketName}" — ${err}`);
+      continue;
+    }
 
     if (!res.ok) {
-      // 429 = rate limited → stop trying more candidates for this item
+      console.log(`[steam-prices] Steam HTTP ${res.status} for "${marketName}"`);
       if (res.status === 429) break;
       continue;
     }
@@ -217,10 +220,16 @@ async function fetchOneFromSteam(itemKey: number, name: string, gradeId: number 
       volume?: string;
     };
 
-    if (!data.success) continue;
+    if (!data.success) {
+      console.log(`[steam-prices] Steam !success for "${marketName}"`);
+      continue;
+    }
 
     const price = parseSteamPrice(data.median_price ?? data.lowest_price);
-    if (price == null) continue; // no listings for this variant
+    if (price == null) {
+      console.log(`[steam-prices] Steam no-price for "${marketName}": ${JSON.stringify(data)}`);
+      continue;
+    }
 
     console.log(`[steam-prices] Steam OK: "${marketName}" → $${price}`);
     return {
