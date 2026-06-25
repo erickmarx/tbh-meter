@@ -270,40 +270,32 @@ function ItemCard({ item }: { item: InventoryItem }) {
   const { open, anchorRef, hover } = useHoverTooltip<HTMLDivElement>();
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const [tooltipAbove, setTooltipAbove] = useState(true);
   const [hovered, setHovered] = useState(false);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
 
-  const clampX = (x: number): number => {
+  const updateTooltipPos = (clientX: number, clientY: number): void => {
     const estW = 180;
-    return Math.max(estW / 2 + 8, Math.min(window.innerWidth - estW / 2 - 8, x));
+    const estH = 80;
+    // Offset from cursor: right and down, leaving space for mouse movement
+    const rawLeft = clientX + 12;
+    const rawTop = clientY + 12;
+    // Clamp to viewport
+    const left = Math.max(8, Math.min(window.innerWidth - estW - 8, rawLeft));
+    const top = Math.max(8, Math.min(window.innerHeight - estH - 8, rawTop));
+    setTooltipPos({ left, top });
   };
 
-  const showTooltip = (): void => {
-    if (!cardRef.current) return;
-    const rect = cardRef.current.getBoundingClientRect();
-    const tooltipH = 80;
-    const spaceAbove = rect.top;
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const above = spaceAbove > tooltipH + 8 || spaceAbove > spaceBelow;
-    setTooltipAbove(above);
-    setTooltipPos({
-      top: above ? rect.top - 6 : rect.bottom + 6,
-      left: clampX(rect.left + rect.width / 2),
-    });
-  };
-
-  const handleEnter = (): void => {
+  const handleEnter = (e: React.MouseEvent): void => {
     setHovered(true);
     openTimer.current = setTimeout(() => {
-      showTooltip();
+      updateTooltipPos(e.clientX, e.clientY);
       hover(true);
     }, 300);
   };
 
   const handleMove = (e: React.MouseEvent): void => {
     if (!open) return;
-    setTooltipPos((prev) => prev ? { ...prev, left: clampX(e.clientX) } : prev);
+    updateTooltipPos(e.clientX, e.clientY);
   };
 
   const handleLeave = (): void => {
@@ -376,7 +368,6 @@ function ItemCard({ item }: { item: InventoryItem }) {
             background: "#18181b",
             top: tooltipPos.top,
             left: tooltipPos.left,
-            transform: `translate(-50%, ${tooltipAbove ? "-100%" : "0"})`,
           }}
         >
           <ItemTooltip item={item} material={material} tradable={tradable} gradeName={gradeName} />
