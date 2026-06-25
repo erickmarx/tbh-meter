@@ -44,7 +44,7 @@ from shared.memory import (Reader, find_pid, open_process, close, regions, scan,
 from shared.utils import tee_stdio
 from il2cpp.resolver import resolve
 from il2cpp import finder
-from game import save
+from game import build, save
 
 CORE_TARGETS = ["StageManager", "PlayerSaveData", "CommonSaveData",
                 "CurrencySaveData", "MonsterSpawnManager"]
@@ -346,10 +346,32 @@ def op_goldsub(_):
     return out
 
 
+def op_inventory(_):
+    """Read account inventory + stash from live PlayerSaveData, 1 round-trip.
+    Returns RAW items (itemKey/uniqueId/slotId/gradeId/level/mods) — ID-based,
+    the caller resolves names. Reuses the battle-tested read_account_snapshot()
+    the meter calls on every run close. Empty item_cat → gradeId/slotId/level
+    are None for all items (the agent is raw/debug; the app resolves names)."""
+    psd = save.pick_live_psd(READER, INST.get("PlayerSaveData", []))
+    if not psd:
+        return {"error": "live PlayerSaveData not found"}
+    try:
+        runes, inventory, stash = build.read_account_snapshot(READER, psd, {})
+        return {
+            "psd": hex(psd),
+            "runes": runes,
+            "inventory": inventory,
+            "stash": stash,
+        }
+    except Exception:
+        import traceback
+        return {"error": traceback.format_exc()}
+
+
 OPS = {"info": op_info, "read": op_read, "dump": op_dump, "obs": op_obs,
        "obs_stable": op_obs_stable, "scanptr": op_scanptr, "resolve": op_resolve,
        "curve": op_curve, "heroes": op_heroes, "gold": op_gold, "psd": op_psd,
-       "goldlive": op_goldlive, "goldsub": op_goldsub}
+       "goldlive": op_goldlive, "goldsub": op_goldsub, "inventory": op_inventory}
 
 
 def main():
