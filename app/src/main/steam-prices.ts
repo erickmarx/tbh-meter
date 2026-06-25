@@ -96,10 +96,10 @@ export function clearPriceCache(): void {
 function isMaterial(itemKey: number): boolean {
   return itemKey < 300_000;
 }
-
-function isFresh(cached: PriceEntry, itemKey: number): boolean {
-  const ttl = isMaterial(itemKey) ? MATERIAL_TTL_MS : EQUIPMENT_TTL_MS;
-  if (!isMaterial(itemKey) && cached.price === null) return false;
+function isFresh(cached: PriceEntry, _itemKey: number): boolean {
+  // Null price is never "fresh" — always re-fetch (market can open, previous cache was wrong, etc.)
+  if (cached.price === null) return false;
+  const ttl = isMaterial(_itemKey) ? MATERIAL_TTL_MS : EQUIPMENT_TTL_MS;
   return Date.now() - cached.fetchedAt < ttl;
 }
 
@@ -283,8 +283,8 @@ export async function fetchLivePrices(
 
       for (const [itemKey, entry] of results) {
         entry.name = nameMap.get(itemKey) ?? "";
-        if (!isMaterial(itemKey) && entry.price === null) {
-          onPrice(entry); // equipment null: notify but don't cache
+        if (entry.price === null) {
+          onPrice(entry); // null: notify but don't cache
         } else {
           cache.set(itemKey, entry);
           persistCache();
@@ -322,15 +322,10 @@ export async function fetchLivePrices(
       onPrice(steamEntry);
     } else {
       console.log(`[steam-prices] Steam fallback MISS: ${name} (${itemKey}) — no listing`);
-      const nullEntry: PriceEntry = {
+      // null price: never cached — will re-fetch next time
+      onPrice({
         itemKey, name, price: null, volume: 0, source: "steam", fetchedAt: Date.now(),
-      };
-      if (isMaterial(itemKey)) {
-        cache.set(itemKey, nullEntry);
-        persistCache();
-      }
-      // equipment null: never cached
-      onPrice(nullEntry);
+      });
     }
 
     // Rate-limit Steam API
