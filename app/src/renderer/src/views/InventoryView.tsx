@@ -286,10 +286,13 @@ function ItemCard({ item }: { item: InventoryItem }) {
         const above = spaceAbove > tooltipH + 8 || spaceAbove > spaceBelow;
         setTooltipAbove(above);
 
-        // Position centered horizontally, above or below the card
+        // Position centered horizontally, clamped to viewport
+        const tooltipW = 200; // estimated max width
+        const rawLeft = rect.left + rect.width / 2;
+        const left = Math.max(tooltipW / 2 + 8, Math.min(window.innerWidth - tooltipW / 2 - 8, rawLeft));
         setTooltipPos({
           top: above ? rect.top - 6 : rect.bottom + 6,
-          left: rect.left + rect.width / 2,
+          left,
         });
       }
       hover(true);
