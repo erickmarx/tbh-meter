@@ -4,6 +4,7 @@
 // Hover tooltip shows item name, ID, grade, level, and price details.
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, CircleDollarSign, ArrowUpDown } from "lucide-react";
 import { useHoverTooltip } from "~/lib/use-hover-tooltip";
 import type {
@@ -271,13 +272,25 @@ function ItemCard({ item }: { item: InventoryItem }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [tooltipAbove, setTooltipAbove] = useState(true);
   const [hovered, setHovered] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
 
   const handleEnter = (): void => {
     setHovered(true);
     openTimer.current = setTimeout(() => {
       if (cardRef.current) {
         const rect = cardRef.current.getBoundingClientRect();
-        setTooltipAbove(rect.top > 180);
+        // Check available space above vs below
+        const tooltipH = 80; // estimated tooltip height
+        const spaceAbove = rect.top;
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const above = spaceAbove > tooltipH + 8 || spaceAbove > spaceBelow;
+        setTooltipAbove(above);
+
+        // Position centered horizontally, above or below the card
+        setTooltipPos({
+          top: above ? rect.top - 6 : rect.bottom + 6,
+          left: rect.left + rect.width / 2,
+        });
       }
       hover(true);
     }, 300);
@@ -285,6 +298,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
 
   const handleLeave = (): void => {
     setHovered(false);
+    setTooltipPos(null);
     if (openTimer.current) { clearTimeout(openTimer.current); openTimer.current = null; }
     hover(false);
   };
@@ -343,17 +357,20 @@ function ItemCard({ item }: { item: InventoryItem }) {
         )}
       </div>
 
-      {/* Tooltip */}
-      {open && (
+      {/* Tooltip — portaled to body to avoid overflow clipping */}
+      {open && tooltipPos && createPortal(
         <div
-          className={cn(
-            "pointer-events-none absolute left-1/2 z-[999] -translate-x-1/2 rounded-md border border-surface-500/70 px-2.5 py-1.5 shadow-xl",
-            tooltipAbove ? "bottom-full mb-1" : "top-full mt-1",
-          )}
-          style={{ background: "#18181b" }}
+          className="fixed pointer-events-none z-[999] -translate-x-1/2 rounded-md border border-surface-500/70 px-2.5 py-1.5 shadow-xl"
+          style={{
+            background: "#18181b",
+            top: tooltipPos.top,
+            left: tooltipPos.left,
+            transform: `translate(-50%, ${tooltipAbove ? "-100%" : "0"})`,
+          }}
         >
           <ItemTooltip item={item} material={material} tradable={tradable} gradeName={gradeName} />
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
