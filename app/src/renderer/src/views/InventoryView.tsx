@@ -321,7 +321,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
         (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
       className={cn(
-        "relative flex cursor-pointer flex-col items-center justify-center rounded outline outline-1 -outline-offset-1 outline-white/[0.08]",
+        "relative flex cursor-pointer flex-col items-center justify-center rounded outline outline-1 -outline-offset-1",
         "transition-[transform] duration-100",
         !tradable && "opacity-50",
         hovered && "scale-105",
@@ -329,6 +329,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
       style={{
         width: 64, height: 64, imageRendering: "pixelated",
         background: gradeHex ? `${gradeHex}22` : "rgba(24,24,27,0.8)",
+        outlineColor: gradeHex ? `${gradeHex}66` : "rgba(255,255,255,0.08)",
       }}
       onMouseEnter={handleEnter}
       onMouseMove={handleMove}
