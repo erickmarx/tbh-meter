@@ -65,6 +65,15 @@ export interface InventorySnapshot {
   priceSource: "steam" | "cache" | "mixed";
   pricesFetchedAt: number | null;
 }
+/** A single price update pushed from the main process as Steam API returns. */
+export interface InventoryPriceUpdate {
+  itemKey: number;
+  price: number | null;
+  volume: number;
+  fetchedAt: number;
+  /** True when this is the final event — all background fetches complete. */
+  allDone: boolean;
+}
 /** Auto-update lifecycle, surfaced to the renderer. Only ever advances past "idle" on
  *  the packaged Windows NSIS install; elsewhere the updater stays dormant. */
 export type UpdateStatus =
@@ -211,6 +220,9 @@ export interface MeterApi {
   /** Account inventory/stash from live game memory (agent) or latest raw record,
    *  with Steam Community Market pricing. Resolves null when no data source exists. */
   getInventory(): Promise<InventorySnapshot | null>;
+  /** Live price updates as Steam API responses arrive in the background.
+   *  Returns an unsubscribe function. */
+  onInventoryPrices(cb: (update: InventoryPriceUpdate) => void): () => void;
   /** Forward a renderer error to the main process's Discord error reporting. */
   reportError(context: string, message: string, stack?: string): void;
   windowControls: { minimize(): void; close(): void };

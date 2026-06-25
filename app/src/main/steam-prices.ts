@@ -1,5 +1,6 @@
 // steam-prices.ts — fetch item prices from Steam Community Market, cached locally.
-// Materials (itemKey < 300k): 1h TTL. Equipment: 24h TTL.
+// Materials (itemKey < 300k): 1h TTL. Equipment: 6h TTL.
+// Null prices for equipment are NEVER cached — the market can open/close.
 // Cache at ~/tbh-meter/prices.json (same dir as raw/logs).
 
 import { join } from "node:path";
@@ -12,13 +13,9 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 export interface PriceEntry {
   itemKey: number;
   name: string;
-  /** USD price, or null when the item exists on Steam but has no active listings. */
   price: number | null;
-  /** 24h volume on Steam market (0 when not reported). */
   volume: number;
-  /** Where the price came from. */
   source: "steam" | "cache";
-  /** Unix ms when this entry was last fetched from Steam. */
   fetchedAt: number;
 }
 
@@ -27,7 +24,7 @@ export interface PriceEntry {
 // ---------------------------------------------------------------------------
 
 const MATERIAL_TTL_MS = 60 * 60 * 1000; // 1 hour
-const EQUIPMENT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const EQUIPMENT_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 function cacheDir(): string {
   const d = join(process.env.HOME ?? process.env.USERPROFILE ?? "~", "tbh-meter");
@@ -65,7 +62,6 @@ function persistCache(): void {
   writeFileSync(cachePath(), JSON.stringify(obj, null, 2), "utf-8");
 }
 
-/** Clear the in-memory cache (for tests). Does NOT delete the file. */
 export function clearPriceCache(): void {
   _cache = null;
 }
@@ -119,50 +115,66 @@ async function fetchOneFromSteam(itemKey: number, name: string): Promise<PriceEn
 }
 
 // ---------------------------------------------------------------------------
-// Public API
+// Helpers
 // ---------------------------------------------------------------------------
 
 function isMaterial(itemKey: number): boolean {
   return itemKey < 300_000;
 }
 
-/**
- * Get the price for one item. Serves from cache when fresh;
- * fetches from Steam on cache miss or expiry.
- */
-export async function getItemPrice(itemKey: number, name: string): Promise<PriceEntry> {
-  const cache = loadCache();
-  const cached = cache.get(itemKey);
+function isFresh(cached: PriceEntry, itemKey: number): boolean {
   const ttl = isMaterial(itemKey) ? MATERIAL_TTL_MS : EQUIPMENT_TTL_MS;
-
-  if (cached && Date.now() - cached.fetchedAt < ttl) {
-    return { ...cached, source: "cache" as const };
-  }
-
-  const entry = await fetchOneFromSteam(itemKey, name);
-  cache.set(itemKey, entry);
-  persistCache();
-  return entry;
+  // Equipment with null price: NEVER serve from cache (market can open/close)
+  if (!isMaterial(itemKey) && cached.price === null) return false;
+  return Date.now() - cached.fetchedAt < ttl;
 }
 
-/**
- * Batch-fetch prices for multiple items with rate-limiting (2.1s between requests).
- * Items already in cache (not expired) are returned immediately without API calls.
- * Steam failures → serves stale cache when available, else null-price fallback.
- */
-export async function getItemPrices(
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/** Get prices from cache only — returns immediately, no network. */
+export function getCachedPrices(
   items: { itemKey: number; name: string }[],
-): Promise<Map<number, PriceEntry>> {
+): Map<number, PriceEntry> {
   const out = new Map<number, PriceEntry>();
-  const toFetch: { itemKey: number; name: string }[] = [];
   const cache = loadCache();
 
   for (const { itemKey, name } of items) {
     const cached = cache.get(itemKey);
-    const ttl = isMaterial(itemKey) ? MATERIAL_TTL_MS : EQUIPMENT_TTL_MS;
-    if (cached && Date.now() - cached.fetchedAt < ttl) {
+    if (cached && isFresh(cached, itemKey)) {
       out.set(itemKey, { ...cached, source: "cache" as const });
     } else {
+      // Not in cache or stale → placeholder
+      out.set(itemKey, {
+        itemKey,
+        name,
+        price: cached?.price ?? null,
+        volume: cached?.volume ?? 0,
+        source: "cache" as const,
+        fetchedAt: cached?.fetchedAt ?? 0,
+      });
+    }
+  }
+
+  return out;
+}
+
+/**
+ * Fetch uncached/stale prices from Steam, rate-limited.
+ * Calls `onPrice(entry)` after each successful fetch so the UI can update live.
+ * Call this AFTER getCachedPrices() to fill in missing prices.
+ */
+export async function fetchLivePrices(
+  items: { itemKey: number; name: string }[],
+  onPrice: (entry: PriceEntry) => void,
+): Promise<void> {
+  const cache = loadCache();
+  const toFetch: { itemKey: number; name: string }[] = [];
+
+  for (const { itemKey, name } of items) {
+    const cached = cache.get(itemKey);
+    if (!cached || !isFresh(cached, itemKey)) {
       toFetch.push({ itemKey, name });
     }
   }
@@ -171,23 +183,23 @@ export async function getItemPrices(
     const { itemKey, name } = toFetch[i];
     try {
       const entry = await fetchOneFromSteam(itemKey, name);
-      cache.set(itemKey, entry);
-      out.set(itemKey, entry);
+      // Don't cache null prices for equipment (market can open/close)
+      if (!isMaterial(itemKey) && entry.price === null) {
+        // Still notify the UI, but don't persist null
+        onPrice(entry);
+      } else {
+        cache.set(itemKey, entry);
+        persistCache();
+        onPrice(entry);
+      }
     } catch {
-      // API failure → serve stale cache if available, else null-price
+      // API failure — keep stale cache or null
       const stale = cache.get(itemKey);
-      out.set(
-        itemKey,
-        stale ?? { itemKey, name, price: null, volume: 0, source: "steam", fetchedAt: 0 },
-      );
+      onPrice(stale ?? { itemKey, name, price: null, volume: 0, source: "steam", fetchedAt: 0 });
     }
 
-    // Rate-limit: 2.1s between Steam API calls
     if (i < toFetch.length - 1) {
       await new Promise((r) => setTimeout(r, 2100));
     }
   }
-
-  persistCache();
-  return out;
 }

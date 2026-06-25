@@ -1,12 +1,16 @@
 // InventoryView.tsx — visual icon grid of the player's inventory with Steam pricing.
-// Materials and equipment unified from inventory + stash, separated only by category.
-// Each card shows the item icon (emoji placeholder for MVP), price stamped bottom-right,
-// quantity badge top-right (materials), and rarity+level bottom-left (equipment).
+// Inventory + stash unified, separated only by category (Materials / Equipment).
+// Prices load in two phases: cached immediately from local JSON, then live Steam
+// prices stream in via background events and update cards in-place.
 // Item names intentionally omitted — will appear elsewhere in a future release.
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Loader2, CircleDollarSign } from "lucide-react";
-import type { InventorySnapshot, InventoryItem } from "../../../shared/ipc-types.js";
+import type {
+  InventorySnapshot,
+  InventoryItem,
+  InventoryPriceUpdate,
+} from "../../../shared/ipc-types.js";
 import type { Translate } from "../../../shared/i18n/index.js";
 import { useI18n } from "~/lib/i18n";
 import { cn } from "~/lib/utils";
@@ -49,6 +53,13 @@ function spriteEmoji(it: InventoryItem): string {
   return "⚔️";
 }
 
+function computeGrandTotal(items: InventoryItem[]): number {
+  return +items
+    .filter((it) => it.totalValue != null)
+    .reduce((s, it) => s + (it.totalValue ?? 0), 0)
+    .toFixed(2);
+}
+
 function formatTimeAgo(ms: number, t: Translate): string {
   const diffMin = Math.floor((Date.now() - ms) / 60_000);
   if (diffMin < 1) return t("inventory.updatedMin", { n: "<1" });
@@ -66,14 +77,77 @@ function formatTimeAgo(ms: number, t: Translate): string {
 export function InventoryView() {
   const { t } = useI18n();
   const [data, setData] = useState<InventorySnapshot | null | "loading" | "error">("loading");
+  const [fetchingCount, setFetchingCount] = useState(0);
+
+  // Merge inventory + stash into one list
+  const allItems = [...(data && data !== "loading" && data !== "error" ? data.inventory ?? [] : []),
+                     ...(data && data !== "loading" && data !== "error" ? data.stash ?? [] : [])];
+
+  // Listen for live price updates from background Steam fetches
+  const handlePriceUpdate = useCallback((update: InventoryPriceUpdate) => {
+    setData((prev) => {
+      if (!prev || prev === "loading" || prev === "error") return prev;
+
+      if (update.allDone) {
+        setFetchingCount(0);
+        return {
+          ...prev,
+          priceSource: "mixed" as const,
+          pricesFetchedAt: update.fetchedAt || prev.pricesFetchedAt,
+        };
+      }
+
+      // Apply the price update to matching items
+      const applyPrice = (items: InventoryItem[] | null): InventoryItem[] | null => {
+        if (!items) return items;
+        return items.map((it) => {
+          if (it.itemKey !== update.itemKey) return it;
+          const price = update.price;
+          const totalValue = price != null ? +(price * it.count).toFixed(2) : null;
+          return { ...it, price, volume: update.volume, totalValue };
+        });
+      };
+
+      const newInventory = applyPrice(prev.inventory);
+      const newStash = applyPrice(prev.stash);
+
+      const allPriced = [...(newInventory ?? []), ...(newStash ?? [])];
+      const withPrice = allPriced.filter((it) => it.price != null);
+
+      return {
+        ...prev,
+        inventory: newInventory,
+        stash: newStash,
+        grandTotal: computeGrandTotal(allPriced),
+        pricedCount: withPrice.length,
+        unpricedCount: allPriced.length - withPrice.length,
+        pricesFetchedAt: update.fetchedAt || prev.pricesFetchedAt,
+      };
+    });
+
+    if (!update.allDone) {
+      setFetchingCount((n) => n - 1);
+    }
+  }, []);
 
   useEffect(() => {
     setData("loading");
     window.meter
       .getInventory()
-      .then((d) => setData(d ?? "error"))
+      .then((d) => {
+        if (d) {
+          // Count items that need live fetching (no cached price)
+          const all = [...(d.inventory ?? []), ...(d.stash ?? [])];
+          const stale = all.filter((it) => it.price == null).length;
+          setFetchingCount(stale);
+        }
+        setData(d ?? "error");
+      })
       .catch(() => setData("error"));
-  }, []);
+
+    const unsub = window.meter.onInventoryPrices(handlePriceUpdate);
+    return unsub;
+  }, [handlePriceUpdate]);
 
   // ── Loading ──
   if (data === "loading") {
@@ -95,8 +169,6 @@ export function InventoryView() {
     );
   }
 
-  // Merge inventory + stash into one list
-  const allItems = [...(data.inventory ?? []), ...(data.stash ?? [])];
   const materials = allItems.filter(isMaterial);
   const equipment = allItems.filter((it) => !isMaterial(it));
   const hasPrices = data.pricedCount > 0;
@@ -134,7 +206,13 @@ export function InventoryView() {
               total: String(data.pricedCount + data.unpricedCount),
             })}
           </span>
-          {freshness && (
+          {fetchingCount > 0 && (
+            <span className="flex items-center gap-1 text-zinc-400">
+              <Loader2 className="size-2.5 animate-spin" />
+              {t("inventory.fetchingN", { n: String(fetchingCount) })}
+            </span>
+          )}
+          {freshness && fetchingCount === 0 && (
             <span className="flex items-center gap-1">
               {freshness === "live" && <CircleDollarSign className="size-3 text-emerald-500" />}
               <span
@@ -166,18 +244,10 @@ export function InventoryView() {
         ) : (
           <>
             {materials.length > 0 && (
-              <CategoryGrid
-                title={t("inventory.materials")}
-                count={materials.length}
-                items={materials}
-              />
+              <CategoryGrid title={t("inventory.materials")} count={materials.length} items={materials} />
             )}
             {equipment.length > 0 && (
-              <CategoryGrid
-                title={t("inventory.equipment")}
-                count={equipment.length}
-                items={equipment}
-              />
+              <CategoryGrid title={t("inventory.equipment")} count={equipment.length} items={equipment} />
             )}
           </>
         )}
@@ -209,7 +279,10 @@ function CategoryGrid({
         </span>
         <span className="text-[10px] tabular-nums text-zinc-600">({count})</span>
       </div>
-      <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))" }}>
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: "repeat(auto-fill, minmax(80px, 1fr))" }}
+      >
         {sorted.map((it, i) => (
           <ItemCard key={`${isMaterial(it) ? "mat" : "eq"}-${it.itemKey}-${i}`} item={it} />
         ))}
@@ -242,9 +315,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
       )}
 
       {/* Icon (centered) */}
-      <span className="my-1 text-2xl leading-none opacity-80">
-        {spriteEmoji(item)}
-      </span>
+      <span className="my-1 text-2xl leading-none opacity-80">{spriteEmoji(item)}</span>
 
       {/* Bottom area: rarity+level (left) + price (right) */}
       <div className="mt-auto flex w-full items-end justify-between gap-1">

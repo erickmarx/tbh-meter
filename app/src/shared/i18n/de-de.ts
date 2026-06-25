@@ -413,4 +413,5 @@ export const DICT: Partial<Record<DictKey, string>> = {
   "inventory.unavailable": "Inventory data unavailable for this run.",
   "inventory.sourceLive": "Live data",
   "inventory.sourceRaw": "From last run",
+  "inventory.fetchingN": "Fetching {n} prices…",
 };

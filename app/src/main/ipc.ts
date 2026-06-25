@@ -10,7 +10,7 @@ import { tMain } from "./i18n.js";
 import { listRuns, getRun, clearAllRuns, pruneToMaxRuns } from "./runs-store.js";
 import { getRunsSource, setFavoritePredicate } from "./sources/runs-source.js";
 import { getInventoryData } from "./inventory-source.js";
-import { getItemPrices } from "./steam-prices.js";
+import { getCachedPrices, fetchLivePrices } from "./steam-prices.js";
 import { isFavorite, toggleFavorite, invalidateFavoritesCache } from "./favorites-store.js";
 import { getLiveSource } from "./sources/live-source.js";
 import {
@@ -284,7 +284,7 @@ export function registerIpcHandlers(deps: IpcDeps): void {
   ipcMain.handle("meter:get-current-session", () => getRunsSource().all()[0]?.sessionId ?? null);
 
   // ── Inventory ──────────────────────────────────────────────────────────
-  ipcMain.handle("meter:get-inventory", async () => {
+  ipcMain.handle("meter:get-inventory", async (event) => {
     const dir = resolveOutputDir();
     if (!dir) return null;
 
@@ -300,21 +300,16 @@ export function registerIpcHandlers(deps: IpcDeps): void {
       }
     }
 
-    const prices =
-      uniqueItems.size > 0
-        ? await getItemPrices(
-            [...uniqueItems.entries()].map(([itemKey, name]) => ({ itemKey, name })),
-          )
-        : new Map();
+    const uniqueList = [...uniqueItems.entries()].map(([itemKey, name]) => ({ itemKey, name }));
 
-    // Aggregate materials by itemKey (count instances); equipment stays individual
+    // Phase 1: serve cached prices immediately (sync from local JSON — instant)
+    const prices = getCachedPrices(uniqueList);
+
+    // Helper: aggregate items with current prices
     const aggregate = (
       items: typeof allItems,
     ): import("../shared/ipc-types.js").InventoryItem[] => {
-      const groups = new Map<
-        number,
-        { name: string; items: typeof allItems }
-      >();
+      const groups = new Map<number, { name: string; items: typeof allItems }>();
       for (const it of items) {
         const g = groups.get(it.itemKey) ?? { name: it.name, items: [] };
         g.items.push(it);
@@ -325,14 +320,9 @@ export function registerIpcHandlers(deps: IpcDeps): void {
         const count = g.items.length;
         const price = p?.price ?? null;
         return {
-          itemKey,
-          uniqueId: g.items[0].uniqueId,
-          name: g.name,
-          slotId: g.items[0].slotId,
-          gradeId: g.items[0].gradeId,
-          level: g.items[0].level,
-          count,
-          price,
+          itemKey, uniqueId: g.items[0].uniqueId, name: g.name,
+          slotId: g.items[0].slotId, gradeId: g.items[0].gradeId,
+          level: g.items[0].level, count, price,
           volume: p?.volume ?? 0,
           totalValue: price != null ? +(price * count).toFixed(2) : null,
         };
@@ -344,14 +334,44 @@ export function registerIpcHandlers(deps: IpcDeps): void {
 
     const allPriced = [...(invItems ?? []), ...(stashItems ?? [])];
     const withPrice = allPriced.filter((it) => it.price != null);
-    const grandTotal = +withPrice
-      .reduce((s, it) => s + (it.totalValue ?? 0), 0)
-      .toFixed(2);
+    const grandTotal = +withPrice.reduce((s, it) => s + (it.totalValue ?? 0), 0).toFixed(2);
 
-    const sources = [...prices.values()].map((p) => p.source);
-    const fetchedAts = [...prices.values()]
-      .map((p) => p.fetchedAt)
-      .filter(Boolean);
+    const sender = event.sender;
+
+    // Phase 2: fetch live prices in background, push updates as they arrive
+    if (uniqueList.length > 0) {
+      const staleCount = uniqueList.filter(({ itemKey }) => {
+        const p = prices.get(itemKey);
+        return !p || p.source !== "cache" || (p.price === null && itemKey >= 300_000);
+      }).length;
+
+      if (staleCount > 0) {
+        // Fire-and-forget background fetch
+        fetchLivePrices(uniqueList, (entry) => {
+          // Push each price update to the renderer
+          sender.send("meter:inventory-prices", {
+            itemKey: entry.itemKey,
+            price: entry.price,
+            volume: entry.volume,
+            fetchedAt: entry.fetchedAt,
+            allDone: false,
+          });
+        }).then(() => {
+          // Final event: all fetches complete
+          sender.send("meter:inventory-prices", {
+            itemKey: 0,
+            price: null,
+            volume: 0,
+            fetchedAt: Date.now(),
+            allDone: true,
+          });
+        }).catch(() => {
+          sender.send("meter:inventory-prices", {
+            itemKey: 0, price: null, volume: 0, fetchedAt: Date.now(), allDone: true,
+          });
+        });
+      }
+    }
 
     return {
       inventory: invItems,
@@ -362,13 +382,8 @@ export function registerIpcHandlers(deps: IpcDeps): void {
       grandTotal,
       pricedCount: withPrice.length,
       unpricedCount: allPriced.length - withPrice.length,
-      priceSource: (
-        sources.length === 0 ? "cache" as const
-        : sources.every((s) => s === "steam") ? "steam" as const
-        : sources.every((s) => s === "cache") ? "cache" as const
-        : "mixed" as const
-      ),
-      pricesFetchedAt: fetchedAts.length > 0 ? Math.min(...fetchedAts) : null,
+      priceSource: "cache" as const,
+      pricesFetchedAt: [...prices.values()].map((p) => p.fetchedAt).filter(Boolean).sort((a, b) => a - b)[0] ?? null,
     };
   });
 

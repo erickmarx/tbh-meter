@@ -134,6 +134,13 @@ const meter: MeterApi = {
 
   getInventory: () => ipcRenderer.invoke("meter:get-inventory"),
 
+  onInventoryPrices: (cb) => {
+    const listener = (_event: Electron.IpcRendererEvent, update: unknown): void =>
+      cb(update as import("../shared/ipc-types.js").InventoryPriceUpdate);
+    ipcRenderer.on("meter:inventory-prices", listener);
+    return () => ipcRenderer.off("meter:inventory-prices", listener);
+  },
+
   reportError: (context, message, stack) =>
     ipcRenderer.send("meter:report-error", context, message, stack),
 
