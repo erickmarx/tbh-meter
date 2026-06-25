@@ -396,6 +396,30 @@ export const DICT = {
   "ago.w": "{n}w ago",
   "ago.mo": "{n}mo ago",
   "ago.y": "{n}y ago",
+
+  // ── Inventory ──
+  "header.tabInventory": "Inventory",
+  "inventory.title": "Inventory",
+  "inventory.loading": "Loading inventory…",
+  "inventory.noData": "No inventory data",
+  "inventory.noDataHint": "Open the game or complete a run to capture your inventory.",
+  "inventory.totalValue": "Total Value",
+  "inventory.pricedCount": "{priced} of {total} items priced",
+  "inventory.priceLive": "Steam live",
+  "inventory.priceCached": "from cache",
+  "inventory.priceStale": "prices stale",
+  "inventory.updatedAgo": "Prices updated {time} ago",
+  "inventory.updatedMin": "{n} min",
+  "inventory.updatedHour": "{n} hour",
+  "inventory.updatedHours": "{n} hours",
+  "inventory.inventory": "Inventory",
+  "inventory.stash": "Stash",
+  "inventory.materials": "Materials",
+  "inventory.equipment": "Equipment",
+  "inventory.empty": "No items",
+  "inventory.unavailable": "Inventory data unavailable for this run.",
+  "inventory.sourceLive": "Live data",
+  "inventory.sourceRaw": "From last run",
 } as const;
 
 export type DictKey = keyof typeof DICT;
