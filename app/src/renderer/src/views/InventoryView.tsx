@@ -328,8 +328,8 @@ function ItemCard({ item }: { item: InventoryItem }) {
       )}
       style={{
         width: 64, height: 64, imageRendering: "pixelated",
-        background: gradeHex ? `${gradeHex}22` : "rgba(24,24,27,0.8)",
-        outlineColor: gradeHex ? `${gradeHex}66` : "rgba(255,255,255,0.08)",
+        background: gradeHex ? `${gradeHex}33` : "rgba(24,24,27,0.8)",
+        outlineColor: gradeHex ? `${gradeHex}cc` : "rgba(255,255,255,0.08)",
       }}
       onMouseEnter={handleEnter}
       onMouseMove={handleMove}
