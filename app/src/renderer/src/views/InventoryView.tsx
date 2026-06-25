@@ -19,12 +19,18 @@ import { cn } from "~/lib/utils";
 // Constants
 // ---------------------------------------------------------------------------
 
-// Border tint per grade (subtle colored border)
-const GRADE_BORDER: Record<number, string> = {
-  9: "border-red-500/40", 8: "border-pink-500/40", 7: "border-cyan-500/40",
-  6: "border-violet-500/40", 5: "border-amber-500/40", 4: "border-red-500/30",
-  3: "border-orange-500/40", 2: "border-blue-500/40", 1: "border-green-500/40",
-  0: "border-surface-600",
+// Background glow per grade (radial gradient simulating rarity background)
+const GRADE_BG: Record<number, string> = {
+  9: "bg-[radial-gradient(ellipse_at_center,rgba(239,68,68,0.15)_0%,transparent_70%)]",   // COSMIC red
+  8: "bg-[radial-gradient(ellipse_at_center,rgba(236,72,153,0.15)_0%,transparent_70%)]",   // DIVINE pink
+  7: "bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.15)_0%,transparent_70%)]",    // CELESTIAL cyan
+  6: "bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.15)_0%,transparent_70%)]",   // BEYOND violet
+  5: "bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.18)_0%,transparent_70%)]",   // ARCANA amber
+  4: "bg-[radial-gradient(ellipse_at_center,rgba(239,68,68,0.12)_0%,transparent_70%)]",    // IMMORTAL red
+  3: "bg-[radial-gradient(ellipse_at_center,rgba(249,115,22,0.15)_0%,transparent_70%)]",   // LEGENDARY orange
+  2: "bg-[radial-gradient(ellipse_at_center,rgba(59,130,246,0.10)_0%,transparent_70%)]",   // RARE blue
+  1: "bg-[radial-gradient(ellipse_at_center,rgba(34,197,94,0.08)_0%,transparent_70%)]",    // UNCOMMON green
+  0: "",                                                                                    // COMMON none
 };
 
 const GRADE_NAMES: Record<number, string> = {
@@ -264,7 +270,7 @@ function FilterChip({ active, onClick, label }: { active: boolean; onClick: () =
 function ItemCard({ item }: { item: InventoryItem }) {
   const material = isMaterial(item);
   const tradable = isItemTradable(item);
-  const gradeBorder = item.gradeId != null ? (GRADE_BORDER[item.gradeId] ?? "") : "";
+  const gradeBg = item.gradeId != null ? (GRADE_BG[item.gradeId] ?? "") : "";
   const gradeName = item.gradeId != null ? (GRADE_NAMES[item.gradeId] ?? "") : "";
   const { open, anchorRef, hover } = useHoverTooltip<HTMLDivElement>();
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -294,9 +300,9 @@ function ItemCard({ item }: { item: InventoryItem }) {
         (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
       className={cn(
-        "relative flex flex-col items-center rounded-lg border bg-surface-800/60 p-1.5",
+        "relative flex flex-col items-center rounded-lg border border-surface-600 bg-surface-800/60 p-1.5",
         "transition-colors hover:bg-surface-800",
-        gradeBorder || "border-surface-600",
+        gradeBg,
         !tradable && "opacity-50",
       )}
       onMouseEnter={handleEnter}
