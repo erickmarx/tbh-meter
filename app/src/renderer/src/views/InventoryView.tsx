@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, CircleDollarSign } from "lucide-react";
+import { useHoverTooltip } from "~/lib/use-hover-tooltip";
 import type {
   InventorySnapshot,
   InventoryItem,
@@ -33,6 +34,14 @@ const GRADE_LABELS: Record<number, string> = {
   3: "RARE",
   2: "UNC",
   1: "COM",
+};
+
+const GRADE_NAMES: Record<number, string> = {
+  5: "LEGENDARY",
+  4: "EPIC",
+  3: "RARE",
+  2: "UNCOMMON",
+  1: "COMMON",
 };
 
 // ---------------------------------------------------------------------------
@@ -306,15 +315,19 @@ function ItemCard({ item }: { item: InventoryItem }) {
   const tradable = isItemTradable(item);
   const gradeBadge = item.gradeId != null ? GRADE_COLORS[item.gradeId] : null;
   const gradeLabel = item.gradeId != null ? (GRADE_LABELS[item.gradeId] ?? "") : "";
+  const gradeName = item.gradeId != null ? (GRADE_NAMES[item.gradeId] ?? "") : "";
+  const { open, anchorRef, hover } = useHoverTooltip<HTMLDivElement>();
 
   return (
     <div
+      ref={anchorRef}
       className={cn(
         "relative flex flex-col items-center rounded-lg border border-surface-600 bg-surface-800/60 p-1.5",
         "transition-colors hover:border-surface-500 hover:bg-surface-800",
         !tradable && "opacity-50",
       )}
-      title={!tradable ? "Not tradable (Legendary+ only)" : item.name}
+      onMouseEnter={() => hover(true)}
+      onMouseLeave={() => hover(false)}
     >
       {/* Quantity badge (top-right, materials only) */}
       {material && item.count > 1 && (
@@ -328,26 +341,16 @@ function ItemCard({ item }: { item: InventoryItem }) {
 
       {/* Bottom area: rarity+level (left) + price (right) */}
       <div className="mt-auto flex w-full items-end justify-between gap-1">
-        {/* Left: rarity badge + level (equipment only) */}
         <div className="flex flex-col items-start gap-0.5">
           {!material && gradeBadge && (
-            <span
-              className={cn(
-                "rounded px-1 py-px text-[8px] font-semibold leading-tight ring-1",
-                gradeBadge,
-              )}
-            >
+            <span className={cn("rounded px-1 py-px text-[8px] font-semibold leading-tight ring-1", gradeBadge)}>
               {gradeLabel}
             </span>
           )}
           {!material && item.level != null && (
-            <span className="text-[9px] tabular-nums leading-tight text-zinc-500">
-              Lv{item.level}
-            </span>
+            <span className="text-[9px] tabular-nums leading-tight text-zinc-500">Lv{item.level}</span>
           )}
         </div>
-
-        {/* Right: price stamp */}
         <div className="flex flex-col items-end">
           {item.price != null ? (
             <span className="rounded bg-emerald-500/10 px-1 text-[10px] font-bold tabular-nums leading-tight text-emerald-400">
@@ -358,6 +361,78 @@ function ItemCard({ item }: { item: InventoryItem }) {
           )}
         </div>
       </div>
+
+      {/* Tooltip */}
+      {open && (
+        <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 -translate-x-1/2 rounded-md border border-surface-500/70 bg-surface-800/95 px-2.5 py-1.5 shadow-xl backdrop-blur">
+          <ItemTooltip item={item} material={material} tradable={tradable} gradeName={gradeName} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Item tooltip (shown on hover)
+// ---------------------------------------------------------------------------
+
+function ItemTooltip({
+  item,
+  material,
+  tradable,
+  gradeName,
+}: {
+  item: InventoryItem;
+  material: boolean;
+  tradable: boolean;
+  gradeName: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5 text-xs whitespace-nowrap">
+      {/* Name */}
+      <span className="font-semibold text-zinc-100">{item.name}</span>
+
+      {/* Material details */}
+      {material && (
+        <>
+          <span className="text-zinc-400">
+            ×{item.count}
+            {item.price != null && (
+              <> · ${item.price.toFixed(2)} ea</>
+            )}
+            {item.totalValue != null && (
+              <> · <span className="text-emerald-400">${item.totalValue.toFixed(2)} total</span></>
+            )}
+          </span>
+          {item.volume > 0 && (
+            <span className="text-zinc-500">Vol: {item.volume.toLocaleString()} (24h)</span>
+          )}
+        </>
+      )}
+
+      {/* Equipment details */}
+      {!material && (
+        <>
+          <span className="text-zinc-400">
+            {gradeName && <>{gradeName}</>}
+            {item.level != null && <> · Lv {item.level}</>}
+          </span>
+          {tradable && item.price != null && (
+            <span className="font-bold text-emerald-400">${item.price.toFixed(2)}</span>
+          )}
+          {tradable && item.volume > 0 && (
+            <span className="text-zinc-500">Vol: {item.volume.toLocaleString()} (24h)</span>
+          )}
+          {!tradable && (
+            <span className="italic text-zinc-500">Not tradable</span>
+          )}
+        </>
+      )}
+
+      {/* No price indicator (both types) */}
+      {tradable && item.price == null && (
+        <span className="text-zinc-500">No active listings</span>
+      )}
     </div>
   );
 }
