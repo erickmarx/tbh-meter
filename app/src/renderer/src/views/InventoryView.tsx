@@ -3,7 +3,7 @@
 // Sortable by Price (default) or Grade. Prices stream in via background events.
 // Hover tooltip shows item name, ID, grade, level, and price details.
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Loader2, CircleDollarSign, ArrowUpDown } from "lucide-react";
 import { useHoverTooltip } from "~/lib/use-hover-tooltip";
 import type {
@@ -19,22 +19,12 @@ import { cn } from "~/lib/utils";
 // Constants
 // ---------------------------------------------------------------------------
 
-const GRADE_COLORS: Record<number, string> = {
-  9: "bg-red-500/10 text-red-400 ring-red-500/30",
-  8: "bg-pink-500/10 text-pink-400 ring-pink-500/30",
-  7: "bg-cyan-500/10 text-cyan-400 ring-cyan-500/30",
-  6: "bg-violet-500/10 text-violet-400 ring-violet-500/30",
-  5: "bg-amber-500/10 text-amber-400 ring-amber-500/30",
-  4: "bg-red-500/10 text-red-300 ring-red-500/30",
-  3: "bg-orange-500/10 text-orange-400 ring-orange-500/30",
-  2: "bg-blue-500/10 text-blue-400 ring-blue-500/30",
-  1: "bg-green-500/10 text-green-400 ring-green-500/30",
-  0: "bg-zinc-500/10 text-zinc-400 ring-zinc-500/30",
-};
-
-const GRADE_LABELS: Record<number, string> = {
-  9: "COS", 8: "DIV", 7: "CEL", 6: "BEY", 5: "ARC",
-  4: "IMM", 3: "LEG", 2: "RAR", 1: "UNC", 0: "COM",
+// Border tint per grade (subtle colored border)
+const GRADE_BORDER: Record<number, string> = {
+  9: "border-red-500/40", 8: "border-pink-500/40", 7: "border-cyan-500/40",
+  6: "border-violet-500/40", 5: "border-amber-500/40", 4: "border-red-500/30",
+  3: "border-orange-500/40", 2: "border-blue-500/40", 1: "border-green-500/40",
+  0: "border-surface-600",
 };
 
 const GRADE_NAMES: Record<number, string> = {
@@ -274,21 +264,43 @@ function FilterChip({ active, onClick, label }: { active: boolean; onClick: () =
 function ItemCard({ item }: { item: InventoryItem }) {
   const material = isMaterial(item);
   const tradable = isItemTradable(item);
-  const gradeBadge = item.gradeId != null ? GRADE_COLORS[item.gradeId] : null;
-  const gradeLabel = item.gradeId != null ? (GRADE_LABELS[item.gradeId] ?? "") : "";
+  const gradeBorder = item.gradeId != null ? (GRADE_BORDER[item.gradeId] ?? "") : "";
   const gradeName = item.gradeId != null ? (GRADE_NAMES[item.gradeId] ?? "") : "";
   const { open, anchorRef, hover } = useHoverTooltip<HTMLDivElement>();
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [tooltipAbove, setTooltipAbove] = useState(true);
+
+  const handleEnter = (): void => {
+    openTimer.current = setTimeout(() => {
+      // Check if card is near top of viewport → flip tooltip below
+      if (cardRef.current) {
+        const rect = cardRef.current.getBoundingClientRect();
+        setTooltipAbove(rect.top > 120);
+      }
+      hover(true);
+    }, 300);
+  };
+
+  const handleLeave = (): void => {
+    if (openTimer.current) { clearTimeout(openTimer.current); openTimer.current = null; }
+    hover(false);
+  };
 
   return (
     <div
-      ref={anchorRef}
+      ref={(node) => {
+        (anchorRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }}
       className={cn(
-        "relative flex flex-col items-center rounded-lg border border-surface-600 bg-surface-800/60 p-1.5",
-        "transition-colors hover:border-surface-500 hover:bg-surface-800",
+        "relative flex flex-col items-center rounded-lg border bg-surface-800/60 p-1.5",
+        "transition-colors hover:bg-surface-800",
+        gradeBorder || "border-surface-600",
         !tradable && "opacity-50",
       )}
-      onMouseEnter={() => hover(true)}
-      onMouseLeave={() => hover(false)}
+      onMouseEnter={handleEnter}
+      onMouseLeave={handleLeave}
     >
       {material && item.count > 1 && (
         <span className="absolute right-1 top-1 rounded bg-surface-700 px-1 text-[10px] font-bold tabular-nums text-zinc-300">
@@ -296,18 +308,11 @@ function ItemCard({ item }: { item: InventoryItem }) {
         </span>
       )}
       <span className="my-1 text-2xl leading-none opacity-80">{spriteEmoji(item)}</span>
-      <div className="mt-auto flex w-full items-end justify-between gap-1">
-        <div className="flex flex-col items-start gap-0.5">
-          {!material && gradeBadge && (
-            <span className={cn("rounded px-1 py-px text-[8px] font-semibold leading-tight ring-1", gradeBadge)}>
-              {gradeLabel}
-            </span>
-          )}
-          {!material && item.level != null && (
-            <span className="text-[9px] tabular-nums leading-tight text-zinc-500">Lv{item.level}</span>
-          )}
-        </div>
-        <div className="flex flex-col items-end">
+      <div className="mt-auto flex w-full items-end justify-end gap-1">
+        {!material && item.level != null && (
+          <span className="text-[9px] tabular-nums leading-tight text-zinc-500">Lv{item.level}</span>
+        )}
+        <div className="ml-auto flex flex-col items-end">
           {item.totalValue != null ? (
             <span className="rounded bg-emerald-500/10 px-1 text-[10px] font-bold tabular-nums leading-tight text-emerald-400">
               ${item.totalValue.toFixed(2)}
@@ -318,7 +323,12 @@ function ItemCard({ item }: { item: InventoryItem }) {
         </div>
       </div>
       {open && (
-        <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1 -translate-x-1/2 rounded-md border border-surface-500/70 bg-surface-800/95 px-2.5 py-1.5 shadow-xl backdrop-blur">
+        <div
+          className={cn(
+            "pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 rounded-md border border-surface-500/70 bg-surface-800/95 px-2.5 py-1.5 shadow-xl backdrop-blur",
+            tooltipAbove ? "bottom-full mb-1" : "top-full mt-1",
+          )}
+        >
           <ItemTooltip item={item} material={material} tradable={tradable} gradeName={gradeName} />
         </div>
       )}
