@@ -20,12 +20,18 @@ import { cn } from "~/lib/utils";
 // Constants
 // ---------------------------------------------------------------------------
 
-// Background fill per grade (solid color with opacity)
-const GRADE_FILL: Record<number, string> = {
-  9: "bg-red-500/20", 8: "bg-pink-500/20", 7: "bg-cyan-500/20",
-  6: "bg-violet-500/20", 5: "bg-amber-500/20", 4: "bg-red-500/15",
-  3: "bg-orange-500/20", 2: "bg-blue-500/15", 1: "bg-green-500/12",
-  0: "bg-surface-800/80",
+// Background fill per grade — colors from taskbarhero.wiki/grades
+const GRADE_HEX: Record<number, string> = {
+  9: "#fcfcfc", // COSMIC
+  8: "#fce454", // DIVINE
+  7: "#6ccce4", // CELESTIAL
+  6: "#fc246c", // BEYOND
+  5: "#b40cfc", // ARCANA
+  4: "#fc2424", // IMMORTAL
+  3: "#fc9c0c", // LEGENDARY
+  2: "#0c6cfc", // RARE
+  1: "#54fc0c", // UNCOMMON
+  0: "#e4e4e4", // COMMON
 };
 
 const GRADE_NAMES: Record<number, string> = {
@@ -265,7 +271,7 @@ function FilterChip({ active, onClick, label }: { active: boolean; onClick: () =
 function ItemCard({ item }: { item: InventoryItem }) {
   const material = isMaterial(item);
   const tradable = isItemTradable(item);
-  const gradeFill = item.gradeId != null ? (GRADE_FILL[item.gradeId] ?? "") : "bg-surface-800/80";
+  const gradeHex = item.gradeId != null ? (GRADE_HEX[item.gradeId] ?? "") : "";
   const gradeName = item.gradeId != null ? (GRADE_NAMES[item.gradeId] ?? "") : "";
   const { open, anchorRef, hover } = useHoverTooltip<HTMLDivElement>();
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -317,11 +323,13 @@ function ItemCard({ item }: { item: InventoryItem }) {
       className={cn(
         "relative flex cursor-pointer flex-col items-center justify-center rounded outline outline-1 -outline-offset-1 outline-white/[0.08]",
         "transition-[transform] duration-100",
-        gradeFill,
         !tradable && "opacity-50",
         hovered && "scale-105",
       )}
-      style={{ width: 64, height: 64, imageRendering: "pixelated" }}
+      style={{
+        width: 64, height: 64, imageRendering: "pixelated",
+        background: gradeHex ? `${gradeHex}22` : "rgba(24,24,27,0.8)",
+      }}
       onMouseEnter={handleEnter}
       onMouseMove={handleMove}
       onMouseLeave={handleLeave}
