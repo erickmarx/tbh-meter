@@ -258,10 +258,10 @@ export function InventoryView() {
         ) : (
           <>
             {materials.length > 0 && (
-              <CategoryGrid title={t("inventory.materials")} count={materials.length} items={materials} hasGrade={false} />
+              <CategoryGrid title={t("inventory.materials")} count={materials.length} items={materials} />
             )}
             {equipment.length > 0 && (
-              <CategoryGrid title={t("inventory.equipment")} count={equipment.length} items={equipment} hasGrade={true} />
+              <CategoryGrid title={t("inventory.equipment")} count={equipment.length} items={equipment} />
             )}
           </>
         )}
@@ -278,18 +278,15 @@ function CategoryGrid({
   title,
   count,
   items,
-  hasGrade,
 }: {
   title: string;
   count: number;
   items: InventoryItem[];
-  /** True for Equipment (has gradeId) — enables grade sort toggle. */
-  hasGrade: boolean;
 }) {
   const [sortBy, setSortBy] = useState<"price" | "grade">("price");
 
   const sorted = [...items].sort((a, b) => {
-    if (sortBy === "grade" && hasGrade) {
+    if (sortBy === "grade") {
       const g = (b.gradeId ?? -1) - (a.gradeId ?? -1);
       if (g !== 0) return g;
       const l = (b.level ?? 0) - (a.level ?? 0);
@@ -305,16 +302,14 @@ function CategoryGrid({
           {title}
         </span>
         <span className="text-[10px] tabular-nums text-zinc-600">({count})</span>
-        {hasGrade && (
-          <button
-            onClick={() => setSortBy((s) => (s === "price" ? "grade" : "price"))}
-            className="ml-auto flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-zinc-500 transition-colors hover:bg-surface-700 hover:text-zinc-300"
-            title={sortBy === "price" ? "Sort by price" : "Sort by grade"}
-          >
-            <ArrowUpDown className="size-3" />
-            {sortBy === "price" ? "Price" : "Grade"}
-          </button>
-        )}
+        <button
+          onClick={() => setSortBy((s) => (s === "price" ? "grade" : "price"))}
+          className="ml-auto flex cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-zinc-500 transition-colors hover:bg-surface-700 hover:text-zinc-300"
+          title={sortBy === "price" ? "Sort by price" : "Sort by grade"}
+        >
+          <ArrowUpDown className="size-3" />
+          {sortBy === "price" ? "Price" : "Grade"}
+        </button>
       </div>
       <div
         className="grid gap-2"
