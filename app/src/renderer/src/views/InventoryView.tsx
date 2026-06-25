@@ -347,7 +347,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
       {open && (
         <div
           className={cn(
-            "pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 rounded-md border border-surface-500/70 px-2.5 py-1.5 shadow-xl",
+            "pointer-events-none absolute left-1/2 z-[999] -translate-x-1/2 rounded-md border border-surface-500/70 px-2.5 py-1.5 shadow-xl",
             tooltipAbove ? "bottom-full mb-1" : "top-full mt-1",
           )}
           style={{ background: "#18181b" }}
