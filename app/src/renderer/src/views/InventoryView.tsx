@@ -274,29 +274,36 @@ function ItemCard({ item }: { item: InventoryItem }) {
   const [hovered, setHovered] = useState(false);
   const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
 
+  const clampX = (x: number): number => {
+    const estW = 180;
+    return Math.max(estW / 2 + 8, Math.min(window.innerWidth - estW / 2 - 8, x));
+  };
+
+  const showTooltip = (): void => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const tooltipH = 80;
+    const spaceAbove = rect.top;
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const above = spaceAbove > tooltipH + 8 || spaceAbove > spaceBelow;
+    setTooltipAbove(above);
+    setTooltipPos({
+      top: above ? rect.top - 6 : rect.bottom + 6,
+      left: clampX(rect.left + rect.width / 2),
+    });
+  };
+
   const handleEnter = (): void => {
     setHovered(true);
     openTimer.current = setTimeout(() => {
-      if (cardRef.current) {
-        const rect = cardRef.current.getBoundingClientRect();
-        // Check available space above vs below
-        const tooltipH = 80; // estimated tooltip height
-        const spaceAbove = rect.top;
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const above = spaceAbove > tooltipH + 8 || spaceAbove > spaceBelow;
-        setTooltipAbove(above);
-
-        // Clamp left so tooltip edges stay within viewport
-        const estW = 180; // estimated tooltip width
-        const rawLeft = rect.left + rect.width / 2;
-        const left = Math.max(estW / 2 + 8, Math.min(window.innerWidth - estW / 2 - 8, rawLeft));
-        setTooltipPos({
-          top: above ? rect.top - 6 : rect.bottom + 6,
-          left,
-        });
-      }
+      showTooltip();
       hover(true);
     }, 300);
+  };
+
+  const handleMove = (e: React.MouseEvent): void => {
+    if (!open) return;
+    setTooltipPos((prev) => prev ? { ...prev, left: clampX(e.clientX) } : prev);
   };
 
   const handleLeave = (): void => {
@@ -321,6 +328,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
       )}
       style={{ width: 64, height: 64, imageRendering: "pixelated" }}
       onMouseEnter={handleEnter}
+      onMouseMove={handleMove}
       onMouseLeave={handleLeave}
     >
       {/* Hover highlight */}
