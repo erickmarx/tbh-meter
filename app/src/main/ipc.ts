@@ -10,7 +10,7 @@ import { tMain } from "./i18n.js";
 import { listRuns, getRun, clearAllRuns, pruneToMaxRuns } from "./runs-store.js";
 import { getRunsSource, setFavoritePredicate } from "./sources/runs-source.js";
 import { getInventoryData } from "./inventory-source.js";
-import { getCachedPrices, fetchLivePrices } from "./steam-prices.js";
+import { getCachedPrices, fetchLivePrices, isTradable } from "./steam-prices.js";
 import { isFavorite, toggleFavorite, invalidateFavoritesCache } from "./favorites-store.js";
 import { getLiveSource } from "./sources/live-source.js";
 import {
@@ -291,11 +291,11 @@ export function registerIpcHandlers(deps: IpcDeps): void {
     const data = await getInventoryData(dir);
     if (!data) return null;
 
-    // Collect unique itemKeys for price lookup
+    // Collect unique itemKeys for price lookup (tradable items only)
     const allItems = [...(data.inventory ?? []), ...(data.stash ?? [])];
     const uniqueItems = new Map<number, string>();
     for (const it of allItems) {
-      if (it.itemKey > 0 && !uniqueItems.has(it.itemKey)) {
+      if (it.itemKey > 0 && !uniqueItems.has(it.itemKey) && isTradable(it.itemKey, it.gradeId)) {
         uniqueItems.set(it.itemKey, it.name);
       }
     }

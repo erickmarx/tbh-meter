@@ -43,6 +43,12 @@ function isMaterial(it: InventoryItem): boolean {
   return it.itemKey < 300_000 || (it.slotId === 0 && it.gradeId == null);
 }
 
+/** Materials always tradable. Equipment only Legendary (gradeId >= 5). */
+function isItemTradable(it: InventoryItem): boolean {
+  if (it.itemKey < 300_000) return true;
+  return it.gradeId != null && it.gradeId >= 5;
+}
+
 function spriteEmoji(it: InventoryItem): string {
   if (isMaterial(it)) return "💎";
   if (it.slotId === 1) return "🗡️";
@@ -297,6 +303,7 @@ function CategoryGrid({
 
 function ItemCard({ item }: { item: InventoryItem }) {
   const material = isMaterial(item);
+  const tradable = isItemTradable(item);
   const gradeBadge = item.gradeId != null ? GRADE_COLORS[item.gradeId] : null;
   const gradeLabel = item.gradeId != null ? (GRADE_LABELS[item.gradeId] ?? "") : "";
 
@@ -305,7 +312,9 @@ function ItemCard({ item }: { item: InventoryItem }) {
       className={cn(
         "relative flex flex-col items-center rounded-lg border border-surface-600 bg-surface-800/60 p-1.5",
         "transition-colors hover:border-surface-500 hover:bg-surface-800",
+        !tradable && "opacity-50",
       )}
+      title={!tradable ? "Not tradable (Legendary+ only)" : item.name}
     >
       {/* Quantity badge (top-right, materials only) */}
       {material && item.count > 1 && (
