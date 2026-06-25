@@ -19,18 +19,22 @@ import { cn } from "~/lib/utils";
 // Constants
 // ---------------------------------------------------------------------------
 
-// Background glow per grade (radial gradient simulating rarity background)
-const GRADE_BG: Record<number, string> = {
-  9: "bg-[radial-gradient(ellipse_at_center,rgba(239,68,68,0.15)_0%,transparent_70%)]",   // COSMIC red
-  8: "bg-[radial-gradient(ellipse_at_center,rgba(236,72,153,0.15)_0%,transparent_70%)]",   // DIVINE pink
-  7: "bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.15)_0%,transparent_70%)]",    // CELESTIAL cyan
-  6: "bg-[radial-gradient(ellipse_at_center,rgba(139,92,246,0.15)_0%,transparent_70%)]",   // BEYOND violet
-  5: "bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.18)_0%,transparent_70%)]",   // ARCANA amber
-  4: "bg-[radial-gradient(ellipse_at_center,rgba(239,68,68,0.12)_0%,transparent_70%)]",    // IMMORTAL red
-  3: "bg-[radial-gradient(ellipse_at_center,rgba(249,115,22,0.15)_0%,transparent_70%)]",   // LEGENDARY orange
-  2: "bg-[radial-gradient(ellipse_at_center,rgba(59,130,246,0.10)_0%,transparent_70%)]",   // RARE blue
-  1: "bg-[radial-gradient(ellipse_at_center,rgba(34,197,94,0.08)_0%,transparent_70%)]",    // UNCOMMON green
-  0: "",                                                                                    // COMMON none
+// Outline color per grade
+const GRADE_OUTLINE: Record<number, string> = {
+  9: "outline-[rgba(239,68,68,0.25)]", 8: "outline-[rgba(236,72,153,0.25)]",
+  7: "outline-[rgba(6,182,212,0.25)]", 6: "outline-[rgba(139,92,246,0.25)]",
+  5: "outline-[rgba(245,158,11,0.25)]", 4: "outline-[rgba(239,68,68,0.20)]",
+  3: "outline-[rgba(249,115,22,0.22)]", 2: "outline-[rgba(59,130,246,0.18)]",
+  1: "outline-[rgba(34,197,94,0.15)]",  0: "outline-[rgba(161,161,170,0.12)]",
+};
+
+// RGB values per grade for radial glow overlay
+const OUTLINE_RGB: Record<number, string> = {
+  9: "rgba(239,68,68,0.12)", 8: "rgba(236,72,153,0.12)",
+  7: "rgba(6,182,212,0.12)", 6: "rgba(139,92,246,0.12)",
+  5: "rgba(245,158,11,0.12)", 4: "rgba(239,68,68,0.10)",
+  3: "rgba(249,115,22,0.10)", 2: "rgba(59,130,246,0.08)",
+  1: "rgba(34,197,94,0.06)",
 };
 
 const GRADE_NAMES: Record<number, string> = {
@@ -270,16 +274,17 @@ function FilterChip({ active, onClick, label }: { active: boolean; onClick: () =
 function ItemCard({ item }: { item: InventoryItem }) {
   const material = isMaterial(item);
   const tradable = isItemTradable(item);
-  const gradeBg = item.gradeId != null ? (GRADE_BG[item.gradeId] ?? "") : "";
+  const gradeOutline = item.gradeId != null ? (GRADE_OUTLINE[item.gradeId] ?? "") : "";
   const gradeName = item.gradeId != null ? (GRADE_NAMES[item.gradeId] ?? "") : "";
   const { open, anchorRef, hover } = useHoverTooltip<HTMLDivElement>();
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const [tooltipAbove, setTooltipAbove] = useState(true);
+  const [hovered, setHovered] = useState(false);
 
   const handleEnter = (): void => {
+    setHovered(true);
     openTimer.current = setTimeout(() => {
-      // Check if card is near top of viewport → flip tooltip below
       if (cardRef.current) {
         const rect = cardRef.current.getBoundingClientRect();
         setTooltipAbove(rect.top > 120);
@@ -289,6 +294,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
   };
 
   const handleLeave = (): void => {
+    setHovered(false);
     if (openTimer.current) { clearTimeout(openTimer.current); openTimer.current = null; }
     hover(false);
   };
@@ -300,34 +306,64 @@ function ItemCard({ item }: { item: InventoryItem }) {
         (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
       className={cn(
-        "relative flex flex-col items-center rounded-lg border border-surface-600 bg-surface-800/60 p-1.5",
-        "transition-colors hover:bg-surface-800",
-        gradeBg,
+        "relative flex cursor-pointer flex-col items-center justify-center rounded outline outline-1 -outline-offset-1",
+        "bg-surface-800/80 transition-[outline,transform] duration-100",
+        gradeOutline || "outline-[rgba(161,161,170,0.12)]",
         !tradable && "opacity-50",
+        hovered && "scale-105",
       )}
+      style={{ width: 64, height: 64, imageRendering: "pixelated" }}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
     >
+      {/* Glow overlay */}
+      {item.gradeId != null && item.gradeId > 0 && (
+        <div
+          className="pointer-events-none absolute inset-0 rounded"
+          style={{
+            background: `radial-gradient(ellipse at center, ${OUTLINE_RGB[item.gradeId] ?? "transparent"}, transparent 70%)`,
+          }}
+        />
+      )}
+
+      {/* Hover highlight */}
+      <div
+        className="pointer-events-none absolute inset-0 rounded bg-white/[0.08] opacity-0 transition-opacity duration-100"
+        style={{ opacity: hovered ? 1 : 0 }}
+      />
+
+      {/* Quantity badge */}
       {material && item.count > 1 && (
-        <span className="absolute right-1 top-1 rounded bg-surface-700 px-1 text-[10px] font-bold tabular-nums text-zinc-300">
-          ×{item.count}
+        <span
+          className="absolute bottom-0.5 right-1 z-10 text-[11px] font-black leading-none"
+          style={{
+            color: "#e0d5c0",
+            textShadow: "rgb(0,0,0) 0px 0px 3px, rgb(0,0,0) 0px 0px 3px",
+            fontFamily: "monospace",
+          }}
+        >
+          {item.count}
         </span>
       )}
-      <span className="my-1 text-2xl leading-none opacity-80">{spriteEmoji(item)}</span>
-      <div className="mt-auto flex w-full items-end justify-end gap-1">
+
+      {/* Icon */}
+      <span className="text-2xl leading-none opacity-90" style={{ imageRendering: "pixelated" }}>
+        {spriteEmoji(item)}
+      </span>
+
+      {/* Level + price footer */}
+      <div className="absolute bottom-0.5 left-1 flex items-center gap-1">
         {!material && item.level != null && (
-          <span className="text-[9px] tabular-nums leading-tight text-zinc-500">Lv{item.level}</span>
+          <span className="text-[8px] font-semibold leading-none text-zinc-400">Lv{item.level}</span>
         )}
-        <div className="ml-auto flex flex-col items-end">
-          {item.totalValue != null ? (
-            <span className="rounded bg-emerald-500/10 px-1 text-[10px] font-bold tabular-nums leading-tight text-emerald-400">
-              ${item.totalValue.toFixed(2)}
-            </span>
-          ) : (
-            <span className="text-[10px] tabular-nums leading-tight text-zinc-600">—</span>
-          )}
-        </div>
+        {item.totalValue != null && (
+          <span className="rounded-sm bg-emerald-500/15 px-0.5 text-[8px] font-bold leading-none text-emerald-400">
+            ${item.totalValue.toFixed(2)}
+          </span>
+        )}
       </div>
+
+      {/* Tooltip */}
       {open && (
         <div
           className={cn(
