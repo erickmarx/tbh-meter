@@ -262,6 +262,7 @@ export async function fetchLivePrices(
       }
     } catch {
       // API failure → all items in batch go to Steam fallback
+      console.error(`[steam-prices] TBH API failed for batch (${batch.length} keys), falling back to Steam`);
       for (const itemKey of batch) {
         const name = nameMap.get(itemKey) ?? "";
         apiMissed.push({ itemKey, name });
@@ -275,11 +276,12 @@ export async function fetchLivePrices(
     const steamEntry = await fetchOneFromSteam(itemKey, name);
 
     if (steamEntry) {
+      console.log(`[steam-prices] Steam fallback OK: ${name} (${itemKey}) → $${steamEntry.price}`);
       cache.set(itemKey, steamEntry);
       persistCache();
       onPrice(steamEntry);
     } else {
-      // No price from either source
+      console.log(`[steam-prices] Steam fallback MISS: ${name} (${itemKey}) — no listing`);
       const nullEntry: PriceEntry = {
         itemKey, name, price: null, volume: 0, source: "steam", fetchedAt: Date.now(),
       };
