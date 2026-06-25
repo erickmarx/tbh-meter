@@ -293,14 +293,16 @@ export function registerIpcHandlers(deps: IpcDeps): void {
 
     // Collect unique itemKeys for price lookup (tradable items only)
     const allItems = [...(data.inventory ?? []), ...(data.stash ?? [])];
-    const uniqueItems = new Map<number, string>();
+    const uniqueItems = new Map<number, { name: string; gradeId: number | null }>();
     for (const it of allItems) {
       if (it.itemKey > 0 && !uniqueItems.has(it.itemKey) && isTradable(it.itemKey, it.gradeId)) {
-        uniqueItems.set(it.itemKey, it.name);
+        uniqueItems.set(it.itemKey, { name: it.name, gradeId: it.gradeId });
       }
     }
 
-    const uniqueList = [...uniqueItems.entries()].map(([itemKey, name]) => ({ itemKey, name }));
+    const uniqueList = [...uniqueItems.entries()].map(([itemKey, info]) => ({
+      itemKey, name: info.name, gradeId: info.gradeId,
+    }));
 
     // Phase 1: serve cached prices immediately (sync from local JSON — instant)
     const prices = getCachedPrices(uniqueList);
