@@ -347,7 +347,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
       {open && (
         <div
           className={cn(
-            "pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 rounded-md border border-surface-500/70 bg-surface-800/95 px-2.5 py-1.5 shadow-xl backdrop-blur",
+            "pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 rounded-md border border-surface-500/70 bg-surface-800 px-2.5 py-1.5 shadow-xl",
             tooltipAbove ? "bottom-full mb-1" : "top-full mt-1",
           )}
         >
