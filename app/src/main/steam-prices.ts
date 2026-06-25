@@ -93,6 +93,10 @@ export function clearPriceCache(): void {
 // Helpers
 // ---------------------------------------------------------------------------
 
+class SteamRateLimitError extends Error {
+  constructor() { super("Steam rate limited"); }
+}
+
 function isMaterial(itemKey: number): boolean {
   return itemKey < 300_000;
 }
@@ -209,7 +213,7 @@ async function fetchOneFromSteam(itemKey: number, name: string, gradeId: number 
 
     if (!res.ok) {
       console.log(`[steam-prices] Steam HTTP ${res.status} for "${marketName}"`);
-      if (res.status === 429) break;
+      if (res.status === 429) throw new SteamRateLimitError();
       continue;
     }
 
@@ -326,27 +330,57 @@ export async function fetchLivePrices(
     }
   }
 
-  // Phase 2: Steam fallback for items the API missed (rate-limited, 1 by 1)
+  // Phase 2: Steam fallback for items the API missed
+  // Individual priceoverview calls are rate-limited aggressively. On 429, we
+  // back off exponentially and abort after 3 consecutive failures.
+  let consecutive429 = 0;
   for (let i = 0; i < apiMissed.length; i++) {
     const { itemKey, name, gradeId } = apiMissed[i];
-    const steamEntry = await fetchOneFromSteam(itemKey, name, gradeId);
+    let steamEntry: PriceEntry | null = null;
+
+    try {
+      steamEntry = await fetchOneFromSteam(itemKey, name, gradeId);
+    } catch (err) {
+      if (err instanceof SteamRateLimitError) {
+        consecutive429++;
+        if (consecutive429 >= 3) {
+          console.warn(`[steam-prices] Aborting Steam fallback after ${consecutive429} consecutive 429s (${apiMissed.length - i} items skipped)`);
+          for (let j = i; j < apiMissed.length; j++) {
+            const skipped = apiMissed[j];
+            onPrice({ itemKey: skipped.itemKey, name: skipped.name, price: null, volume: 0, source: "steam", fetchedAt: Date.now() });
+          }
+          return;
+        }
+        // Wait and retry
+        const backoff = consecutive429 * 10_000;
+        console.log(`[steam-prices] 429 #${consecutive429}, waiting ${backoff / 1000}s before retry...`);
+        await new Promise((r) => setTimeout(r, backoff));
+        try {
+          steamEntry = await fetchOneFromSteam(itemKey, name, gradeId);
+          consecutive429 = 0;
+        } catch (err2) {
+          if (err2 instanceof SteamRateLimitError) {
+            consecutive429++;
+          }
+        }
+      }
+    }
 
     if (steamEntry) {
-      console.log(`[steam-prices] Steam fallback OK: ${name} (${itemKey}) → $${steamEntry.price}`);
+      consecutive429 = 0;
+      console.log(`[steam-prices] Steam OK: ${name} (${itemKey}) → $${steamEntry.price}`);
       cache.set(itemKey, steamEntry);
       persistCache();
       onPrice(steamEntry);
     } else {
-      console.log(`[steam-prices] Steam fallback MISS: ${name} (${itemKey}) — no listing`);
-      // null price: never cached — will re-fetch next time
       onPrice({
         itemKey, name, price: null, volume: 0, source: "steam", fetchedAt: Date.now(),
       });
     }
 
-    // Rate-limit Steam API
+    // Normal rate-limit delay
     if (i < apiMissed.length - 1) {
-      await new Promise((r) => setTimeout(r, 2100));
+      await new Promise((r) => setTimeout(r, 3000));
     }
   }
 }
