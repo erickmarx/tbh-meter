@@ -21,27 +21,26 @@ import { cn } from "~/lib/utils";
 // ---------------------------------------------------------------------------
 
 const GRADE_COLORS: Record<number, string> = {
-  5: "bg-amber-500/10 text-amber-400 ring-amber-500/30",
-  4: "bg-purple-500/10 text-purple-400 ring-purple-500/30",
-  3: "bg-blue-500/10 text-blue-400 ring-blue-500/30",
-  2: "bg-green-500/10 text-green-400 ring-green-500/30",
-  1: "bg-zinc-500/10 text-zinc-400 ring-zinc-500/30",
+  9: "bg-red-500/10 text-red-400 ring-red-500/30",          // COSMIC
+  8: "bg-pink-500/10 text-pink-400 ring-pink-500/30",       // DIVINE
+  7: "bg-cyan-500/10 text-cyan-400 ring-cyan-500/30",       // CELESTIAL
+  6: "bg-violet-500/10 text-violet-400 ring-violet-500/30", // BEYOND
+  5: "bg-amber-500/10 text-amber-400 ring-amber-500/30",    // ARCANA
+  4: "bg-red-500/10 text-red-300 ring-red-500/30",          // IMMORTAL
+  3: "bg-orange-500/10 text-orange-400 ring-orange-500/30", // LEGENDARY
+  2: "bg-blue-500/10 text-blue-400 ring-blue-500/30",       // RARE
+  1: "bg-green-500/10 text-green-400 ring-green-500/30",    // UNCOMMON
+  0: "bg-zinc-500/10 text-zinc-400 ring-zinc-500/30",       // COMMON
 };
 
 const GRADE_LABELS: Record<number, string> = {
-  5: "LEG",
-  4: "EPIC",
-  3: "RARE",
-  2: "UNC",
-  1: "COM",
+  9: "COS", 8: "DIV", 7: "CEL", 6: "BEY", 5: "ARC",
+  4: "IMM", 3: "LEG", 2: "RAR", 1: "UNC", 0: "COM",
 };
 
 const GRADE_NAMES: Record<number, string> = {
-  5: "LEGENDARY",
-  4: "EPIC",
-  3: "RARE",
-  2: "UNCOMMON",
-  1: "COMMON",
+  9: "COSMIC", 8: "DIVINE", 7: "CELESTIAL", 6: "BEYOND", 5: "ARCANA",
+  4: "IMMORTAL", 3: "LEGENDARY", 2: "RARE", 1: "UNCOMMON", 0: "COMMON",
 };
 
 // ---------------------------------------------------------------------------
@@ -52,10 +51,10 @@ function isMaterial(it: InventoryItem): boolean {
   return it.itemKey < 300_000 || (it.slotId === 0 && it.gradeId == null);
 }
 
-/** Materials always tradable. Equipment only Legendary (gradeId >= 5). */
+/** Materials always tradable. Equipment only LEGENDARY+ (gradeId >= 3). */
 function isItemTradable(it: InventoryItem): boolean {
   if (it.itemKey < 300_000) return true;
-  return it.gradeId != null && it.gradeId >= 5;
+  return it.gradeId != null && it.gradeId >= 3;
 }
 
 function spriteEmoji(it: InventoryItem): string {

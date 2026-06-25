@@ -43,7 +43,7 @@ interface ApiPriceResponse {
  */
 export function isTradable(itemKey: number, gradeId: number | null): boolean {
   if (itemKey < 300_000) return true;                      // materials
-  return gradeId != null && gradeId >= 5;                   // equipment: Legendary+
+  return gradeId != null && gradeId >= 3;                   // equipment: LEGENDARY+
 }
 
 // ---------------------------------------------------------------------------
