@@ -198,10 +198,17 @@ async function fetchOneFromSteam(itemKey: number, name: string, gradeId: number 
     const url = `https://steamcommunity.com/market/priceoverview/?appid=3678970&currency=1&market_hash_name=${encoded}`;
 
     let res: Response;
-    try { res = await fetch(url); }
-    catch { continue; }
+    try {
+      res = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+      });
+    } catch { continue; }
 
-    if (!res.ok) continue;
+    if (!res.ok) {
+      // 429 = rate limited → stop trying more candidates for this item
+      if (res.status === 429) break;
+      continue;
+    }
 
     const data = (await res.json()) as {
       success: boolean;
