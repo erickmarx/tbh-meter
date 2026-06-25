@@ -31,7 +31,7 @@ from config.offsets import (List, Array, Class, MonsterSpawnManager, LogManager,
                             StageInfoData, StageClearLog, StageFailedLog, GetBoxLog,
                             HeroDieLog, ResurrectionLog, EMonsterLogType,
                             CommonSaveData, ItemInfoData, HeroInfoData, EStageDifficulty,
-                            EStageType, name_map)
+                            EStageType, PlayerSaveData, RuneSaveData, name_map)
 from shared.memory import Reader, regions, find_pid, open_process, close, process_image_path
 from shared.utils import tee_stdio, resource_path, init_diag_log, diag
 from shared.single_instance import acquire as acquire_single_instance
@@ -127,7 +127,7 @@ def _detect_game_version(handle):
         return None
 
 
-CACHE_FMT = 9   # bump when the cache shape changes. 9 = stage_info includes ACTBOSS stages (x-10) — old calibs lack those keys and the fast path reuses them forever, so force ONE re-scan. 8 = CALIB-ONLY: a calib{fp:...} block keyed by build fingerprint — relative anchor_rva (ASLR-stable) + indices{name:idx} + idx_ut + build-stable catalogs. The LEGACY absolute-address cache (sc_class/msm/lm/... + load_cache/save_cache/_managers_ok) WAS REMOVED: calib is build-keyed and the fast path revalidates by round-trip + instance size every launch (it stores no absolute address, so there's nothing to revalidate by address). History: 7 = +die_class/res_class; 6 = +gb_class; 5 = +gold_klass; 4 = +sm_list for live party.
+CACHE_FMT = 10   # bump when the cache shape changes. 10 = stage_info tuple includes WaveMonsterAmount (wm) as 5th element (was 4). 9 = stage_info includes ACTBOSS stages (x-10)
 
 
 def _seed_path():
@@ -154,10 +154,10 @@ def _stage_info_ok(stage_info):
         return False
     # bool is a subclass of int in Python: a `true` in a hand-edited cache would pass as
     # diff=1 — exclude it explicitly (real JSON from save_calib only produces ints).
-    return all(isinstance(row, tuple) and len(row) == 4
+    return all(isinstance(row, tuple) and len(row) == 5
                and all(isinstance(x, int) and not isinstance(x, bool) for x in row)
                and 1 <= row[0] <= 200 and 1 <= row[1] <= 200
-               and row[3] in DIFF_NAMES
+               and row[4] in DIFF_NAMES
                for row in stage_info.values())
 
 
@@ -594,7 +594,7 @@ def _read_catalogs(reader, inst):
         # fields; horde = 0 (the consumers' "+1 = the boss" already covers the total).
         boss_ok = st == EStageType.ACTBOSS and diff_ok and actsno_ok
         if sk is not None and (waves_ok or boss_ok):
-            stage_info[sk] = (act, sno, wa * wm if waves_ok else 0, diff)
+            stage_info[sk] = (act, sno, wa * wm if waves_ok else 0, wm, diff)
     item_cat = {}
     for a in inst.get("ItemInfoData", []):
         ik = reader.ri32(a + ItemInfoData.ITEM_KEY)
@@ -993,8 +993,23 @@ def run(hz, output_dir, debug=False):
         si = stage_info.get(stage_key)
         act = si[0] if si else None
         stage = si[1] if si else None
+        wm = si[3] if si else None
+        # Rune of Brevity (key 1171): Stage Wave Count -1
+        # Subtracts one wave's worth of mobs from the total
         total = (si[2] + 1) if si else None
-        mode = DIFF_NAMES.get(si[3], "?") if si else "?"
+        if wm and total and status != "abandoned":
+            # Quick check for Brevity rune from the PSD's rune list
+            try:
+                p = save.pick_live_psd(reader, psd_list)
+                if p:
+                    for e in reader.list_iter(reader.rptr(p + PlayerSaveData.RUNES)):
+                        k = reader.ri32(e + RuneSaveData.KEY)
+                        if k == 1171:
+                            total -= wm
+                            break
+            except Exception:
+                pass
+        mode = DIFF_NAMES.get(si[4], "?") if si else "?"
         clear_time = 0
         wave_now = wave_tot = None
         if status in ("success", "fail") and e is not None:
@@ -1173,7 +1188,7 @@ def run(hz, output_dir, debug=False):
             ts_ms=ts_ms, run_outcome=status,
             game_version=game_version, duration=measured,
             stage_key=stage_key, act=act, stage_no=stage,
-            difficulty=(si[3] if si else None), total_mobs=total,
+            difficulty=(si[4] if si else None), total_mobs=total,
             mobs=R["mobs"], total_damage=total_damage, clear_time=clear_time,
             gold=gold_gain, gold_ok=gold_ok, gold_source=ge_src,
             xp_gained=xp_best, xp_ok=xp_ok, xp_source=xp_src,
@@ -1308,8 +1323,19 @@ def run(hz, output_dir, debug=False):
             _si = stage_info.get(cur_key)
             # +1 = the boss (StageInfoData counts only the horde mobs; we also kill the boss)
             total_mobs = (_si[2] + 1) if _si else None
+            # Rune of Brevity correction for live overlay
+            if _si and total_mobs and _si[3]:
+                try:
+                    psd = save.pick_live_psd(reader, psd_list)
+                    if psd:
+                        for e in reader.list_iter(reader.rptr(psd + PlayerSaveData.RUNES)):
+                            if reader.ri32(e + RuneSaveData.KEY) == 1171:
+                                total_mobs -= _si[3]
+                                break
+                except Exception:
+                    pass
             stage_lbl = f"{_si[0]}-{_si[1]}" if _si else "?"
-            mode_txt = DIFF_NAMES.get(_si[3], "?") if _si else "?"
+            mode_txt = DIFF_NAMES.get(_si[4], "?") if _si else "?"
 
             # Manual RESTART of the SAME stage: DeadMonsterUnit is cumulative and DROPS when the
             # stage reloads on a manual restart. Clear/auto-replay do NOT zero it (they log separately).
@@ -1480,7 +1506,7 @@ def run(hz, output_dir, debug=False):
                     stage_key=cur_key,
                     act=_si_live[0] if _si_live else None,
                     stage_no=_si_live[1] if _si_live else None,
-                    difficulty=_si_live[3] if _si_live else None,
+                    difficulty=_si_live[4] if _si_live else None,
                     mobs=R["mobs"], total_mobs=total_mobs,
                     damage_now=dps_t.total_damage, elapsed=elapsed,
                     gold_now=g_gain, xp_now=x_gain,

@@ -30,7 +30,7 @@ code_anchors:
   - il2cpp/resolver.py::resolve_via_rva
   - config/calib_seed.json
 asserts:
-  - meter_windows.CACHE_FMT == 9
+  - meter_windows.CACHE_FMT == 10
 guarded_by:
   - tests/test_calib.py::TestTolerateOldJson::test_old_fmt_returns_none
   - tests/test_calib.py::TestSeedFallback::test_seed_fp_miss_returns_none

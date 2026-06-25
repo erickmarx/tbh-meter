@@ -24,19 +24,19 @@ FP = "1.00.07-0x6a203f51-0x62ea000"
 ANCHOR_RVA = 0x5B070E0
 INDICES = {"StageManager": 2592, "LogManager": 2831, "MonsterSpawnManager": 2931}
 IDX_UT = 2744
-# rows = (act, stage_no, horda, diff); diff must be a real EStageDifficulty (0..3).
+# rows = (act, stage_no, horde, wm, diff); diff must be a real EStageDifficulty (0..3).
 # POISONED = the shape of the "?" mode bug (diff -1 written when the read failed): it must be
 # REJECTED by both gates (_stage_info_ok in save AND in load).
-STAGE_INFO = {1001: (1, 1, 50, 0), 1002: (1, 2, 60, 3)}
-POISONED_STAGE_INFO = {1001: (1, 1, 50, 0), 1002: (1, 2, 60, -1)}
+STAGE_INFO = {1001: (1, 1, 50, 10, 0), 1002: (1, 2, 60, 10, 3)}
+POISONED_STAGE_INFO = {1001: (1, 1, 50, 10, 0), 1002: (1, 2, 60, 10, -1)}
 ITEM_CAT = {30001: (3, 2, 5), 30002: (1, 0, 0)}
 HERO_CAT = {601: 1, 602: None}
 # Catalogs with a HOLE: a STRICT subset of the seed's — every row is VALID (passes the VALUE
 # gates, _stage_info_ok/len>0); only the COMPLETENESS-vs-seed gate catches them.
-HOLEY_STAGE_INFO = {1001: (1, 1, 50, 0)}                  # missing the 1002 the seed has
+HOLEY_STAGE_INFO = {1001: (1, 1, 50, 10, 0)}                  # missing the 1002 the seed has
 HOLEY_ITEM_CAT = {30001: (3, 2, 5)}                       # missing the 30002 the seed has
 HOLEY_HERO_CAT = {601: 1}                                 # missing the 602 the seed has
-SUPERSET_STAGE_INFO = {**STAGE_INFO, 1003: (1, 3, 70, 2)}  # an EXTRA key beyond the seed
+SUPERSET_STAGE_INFO = {**STAGE_INFO, 1003: (1, 3, 70, 10, 2)}  # an EXTRA key beyond the seed
 SEED_ANCHOR = 0x5EED   # anchor DISTINCT from the cache's → the asserts prove provenance
 
 
