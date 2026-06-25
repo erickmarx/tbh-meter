@@ -272,7 +272,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [tooltipAbove, setTooltipAbove] = useState(true);
   const [hovered, setHovered] = useState(false);
-  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ top: number } | null>(null);
 
   const handleEnter = (): void => {
     setHovered(true);
@@ -286,14 +286,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
         const above = spaceAbove > tooltipH + 8 || spaceAbove > spaceBelow;
         setTooltipAbove(above);
 
-        // Position centered horizontally, clamped to viewport
-        const tooltipW = 200; // estimated max width
-        const rawLeft = rect.left + rect.width / 2;
-        const left = Math.max(tooltipW / 2 + 8, Math.min(window.innerWidth - tooltipW / 2 - 8, rawLeft));
-        setTooltipPos({
-          top: above ? rect.top - 6 : rect.bottom + 6,
-          left,
-        });
+        setTooltipPos({ top: above ? rect.top - 6 : rect.bottom + 6 });
       }
       hover(true);
     }, 300);
@@ -363,11 +356,11 @@ function ItemCard({ item }: { item: InventoryItem }) {
       {/* Tooltip — portaled to body to avoid overflow clipping */}
       {open && tooltipPos && createPortal(
         <div
-          className="fixed pointer-events-none z-[999] -translate-x-1/2 rounded-md border border-surface-500/70 px-2.5 py-1.5 shadow-xl"
+          className="fixed pointer-events-none z-[999] rounded-md border border-surface-500/70 px-2.5 py-1.5 shadow-xl max-w-[calc(100vw-16px)]"
           style={{
             background: "#18181b",
             top: tooltipPos.top,
-            left: tooltipPos.left,
+            left: "50%",
             transform: `translate(-50%, ${tooltipAbove ? "-100%" : "0"})`,
           }}
         >
