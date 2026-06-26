@@ -429,7 +429,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
 // ---------------------------------------------------------------------------
 
 function ItemTooltip({
-  item, material, tradable, gradeName, gradeHex,
+  item, material, tradable: _tradable, gradeName, gradeHex,
 }: {
   item: InventoryItem; material: boolean; tradable: boolean; gradeName: string; gradeHex?: string;
 }) {
