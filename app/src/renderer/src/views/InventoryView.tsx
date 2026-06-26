@@ -65,9 +65,17 @@ const SLOT_PREFIX: Record<number, string> = {
 
 function spriteSrc(itemKey: number): string {
   if (itemKey <= 0) return "";
-  const slot = Math.floor(itemKey / 1000);
-  const prefix = SLOT_PREFIX[slot] ?? "Item";
-  return `sprites/items/${prefix}_${itemKey}.png`;
+  // Equipment: decode variant key → base sprite
+  if (itemKey >= 300_000 && itemKey <= 639_999) {
+    // Variant encoding: 3SSTBBV → base = 3SS0BB
+    const slotPrefix = Math.floor(itemKey / 10000); // 31 for 315171
+    const prefix = SLOT_PREFIX[slotPrefix] ?? "Item";
+    const baseId = Math.floor((itemKey % 1000) / 10);  // 17 for 315171
+    const baseItemKey = slotPrefix * 10000 + baseId;   // 310017
+    return `sprites/items/${prefix}_${baseItemKey}.png`;
+  }
+  // Materials: use exact itemKey
+  return `sprites/items/Item_${itemKey}.png`;
 }
 
 function formatTimeAgo(ms: number, t: Translate): string {
