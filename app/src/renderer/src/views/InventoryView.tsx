@@ -55,14 +55,19 @@ function isItemTradable(it: InventoryItem): boolean {
   return it.gradeId != null && it.gradeId >= 3;
 }
 
-function spriteEmoji(it: InventoryItem): string {
-  if (isMaterial(it)) return "💎";
-  if (it.slotId === 1) return "🗡️";
-  if (it.slotId === 6) return "🛡️";
-  if (it.slotId === 2) return "🏹";
-  if (it.slotId === 3) return "📿";
-  if (it.slotId === 4) return "💍";
-  return "⚔️";
+// Slot prefix by itemKey range (equipment)
+const SLOT_PREFIX: Record<number, string> = {
+  30: "SWORD", 31: "BOW", 32: "STAFF", 33: "SCEPTER", 34: "CROSSBOW", 35: "AXE",
+  40: "SHIELD", 41: "ARROW", 42: "ORB", 43: "TOME", 44: "BOLT", 45: "HATCHET",
+  50: "HELMET", 51: "ARMOR", 52: "GLOVES", 53: "BOOTS",
+  60: "AMULET", 61: "EARING", 62: "RING", 63: "BRACER",
+};
+
+function spriteSrc(itemKey: number): string {
+  if (itemKey <= 0) return "";
+  const slot = Math.floor(itemKey / 1000);
+  const prefix = SLOT_PREFIX[slot] ?? "Item";
+  return `sprites/items/${prefix}_${itemKey}.png`;
 }
 
 function formatTimeAgo(ms: number, t: Translate): string {
@@ -357,9 +362,15 @@ function ItemCard({ item }: { item: InventoryItem }) {
       )}
 
       {/* Icon */}
-      <span className="text-2xl leading-none opacity-90" style={{ imageRendering: "pixelated" }}>
-        {spriteEmoji(item)}
-      </span>
+      <img
+        src={spriteSrc(item.itemKey)}
+        alt=""
+        className="w-[42px] h-[42px] object-contain opacity-90"
+        style={{ imageRendering: "pixelated" }}
+        onError={(e) => {
+          (e.target as HTMLImageElement).style.display = "none";
+        }}
+      />
 
       {/* Level + price footer */}
       <div className="absolute bottom-0.5 left-1 flex items-center gap-1">
