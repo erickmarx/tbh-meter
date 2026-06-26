@@ -32,7 +32,21 @@ function gradeSlotSrc(gradeId: number | null): string | undefined {
   return name ? `sprites/item_slot/ItemSlot_${name}.png` : undefined;
 }
 
-// Grade hex colors from taskbarhero.wiki/grades (for tooltip styling)
+// Grade solid tooltip backgrounds — dark opaque variants of wiki colors
+const GRADE_BG: Record<number, string> = {
+  9: "#1a1a20", // COSMIC — dark silver
+  8: "#1a1a10", // DIVINE — dark gold
+  7: "#101a1c", // CELESTIAL — dark cyan
+  6: "#1a1015", // BEYOND — dark rose
+  5: "#1a1020", // ARCANA — dark violet
+  4: "#1a1010", // IMMORTAL — dark red
+  3: "#1a140e", // LEGENDARY — dark orange
+  2: "#0e141c", // RARE — dark blue
+  1: "#0e1a10", // UNCOMMON — dark green
+  0: "#141414", // COMMON — dark grey
+};
+
+// Grade hex colors for borders/glow (from wiki)
 const GRADE_HEX: Record<number, string> = {
   9: "#fcfcfc", 8: "#fce454", 7: "#6ccce4", 6: "#fc246c", 5: "#b40cfc",
   4: "#fc2424", 3: "#fc9c0c", 2: "#0c6cfc", 1: "#54fc0c", 0: "#e4e4e4",
@@ -399,7 +413,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
         <div
           className="fixed pointer-events-none z-[999] rounded-xl px-4 py-3.5 max-w-[calc(100vw-16px)]"
           style={{
-            background: "#14100b",
+            background: item.gradeId != null ? GRADE_BG[item.gradeId] : "#14100b",
             border: item.gradeId != null
               ? `1px solid ${GRADE_HEX[item.gradeId]}55`
               : "1px solid rgba(113,113,122,0.25)",
