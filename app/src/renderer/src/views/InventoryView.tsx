@@ -32,18 +32,18 @@ function gradeSlotSrc(gradeId: number | null): string | undefined {
   return name ? `sprites/item_slot/ItemSlot_${name}.png` : undefined;
 }
 
-// Grade solid tooltip backgrounds — dark opaque variants of wiki colors
+// Grade solid tooltip backgrounds — dark opaque variants (30% lighter)
 const GRADE_BG: Record<number, string> = {
-  9: "#1a1a20", // COSMIC — dark silver
-  8: "#1a1a10", // DIVINE — dark gold
-  7: "#101a1c", // CELESTIAL — dark cyan
-  6: "#1a1015", // BEYOND — dark rose
-  5: "#1a1020", // ARCANA — dark violet
-  4: "#1a1010", // IMMORTAL — dark red
-  3: "#1a140e", // LEGENDARY — dark orange
-  2: "#0e141c", // RARE — dark blue
-  1: "#0e1a10", // UNCOMMON — dark green
-  0: "#141414", // COMMON — dark grey
+  9: "#2a2a34", // COSMIC
+  8: "#2a2a1a", // DIVINE
+  7: "#1a2a2e", // CELESTIAL
+  6: "#2a1a22", // BEYOND
+  5: "#2a1a34", // ARCANA
+  4: "#2a1a1a", // IMMORTAL
+  3: "#2a2016", // LEGENDARY
+  2: "#16202e", // RARE
+  1: "#162a1a", // UNCOMMON
+  0: "#202020", // COMMON
 };
 
 // Grade hex colors for borders/glow (from wiki)
@@ -415,7 +415,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
           style={{
             background: item.gradeId != null ? GRADE_BG[item.gradeId] : "#14100b",
             border: item.gradeId != null
-              ? `1px solid ${GRADE_HEX[item.gradeId]}55`
+              ? `1px solid ${GRADE_HEX[item.gradeId]}77`
               : "1px solid rgba(113,113,122,0.25)",
             boxShadow: item.gradeId != null
               ? `
