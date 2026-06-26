@@ -31,7 +31,7 @@ for (const [sub, dest] of copies) {
   }
   mkdirSync(dest, { recursive: true });
   const entries = readdirSync(srcDir);
-  for (const f of entries) cpSync(join(srcDir, f), join(dest, f));
+  for (const f of entries) cpSync(join(srcDir, f), join(dest, f), { recursive: true });
   console.log(`sync-data: ${sub} (${entries.length}) -> ${dest.slice(root.length + 1)}`);
 }
 
