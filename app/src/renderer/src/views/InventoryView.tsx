@@ -32,18 +32,18 @@ function gradeSlotSrc(gradeId: number | null): string | undefined {
   return name ? `sprites/item_slot/ItemSlot_${name}.png` : undefined;
 }
 
-// Grade solid tooltip backgrounds — dark opaque variants (30% brighter)
+// Grade solid tooltip backgrounds — 25% luminance from wiki colors
 const GRADE_BG: Record<number, string> = {
-  9: "#363644", // COSMIC
-  8: "#363624", // DIVINE
-  7: "#24363c", // CELESTIAL
-  6: "#36242e", // BEYOND
-  5: "#362444", // ARCANA
-  4: "#362424", // IMMORTAL
-  3: "#362a1e", // LEGENDARY
-  2: "#1e2a3c", // RARE
-  1: "#1e3624", // UNCOMMON
-  0: "#2a2a2a", // COMMON
+  9: "#3f3f3f", // COSMIC from #fcfcfc
+  8: "#3f3915", // DIVINE from #fce454
+  7: "#1b3339", // CELESTIAL from #6ccce4
+  6: "#3f091b", // BEYOND from #fc246c
+  5: "#2d033f", // ARCANA from #b40cfc
+  4: "#3f0909", // IMMORTAL from #fc2424
+  3: "#3f2703", // LEGENDARY from #fc9c0c
+  2: "#031b3f", // RARE from #0c6cfc
+  1: "#153f03", // UNCOMMON from #54fc0c
+  0: "#393939", // COMMON from #e4e4e4
 };
 
 // Grade hex colors for borders/glow (from wiki)
