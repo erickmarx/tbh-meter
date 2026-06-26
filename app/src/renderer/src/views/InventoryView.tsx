@@ -341,7 +341,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
         width: 64, height: 64, imageRendering: "pixelated",
         backgroundImage: gradeSlot ? `url(${gradeSlot})` : undefined,
         backgroundSize: "100% 100%",
-        outlineColor: gradeSlot ? undefined : "rgba(255,255,255,0.08)",
+        boxShadow: "3px 3px 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.15)",
       }}
       onMouseEnter={handleEnter}
       onMouseMove={handleMove}
