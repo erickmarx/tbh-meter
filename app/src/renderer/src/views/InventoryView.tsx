@@ -400,8 +400,8 @@ function ItemCard({ item }: { item: InventoryItem }) {
           className="fixed pointer-events-none z-[999] rounded-xl px-4 py-3.5 max-w-[calc(100vw-16px)]"
           style={{
             background: item.gradeId != null
-              ? `linear-gradient(180deg, ${GRADE_HEX[item.gradeId]}33, #14100b 45%)`
-              : "linear-gradient(180deg, #18181b, #14100b 45%)",
+              ? `linear-gradient(180deg, ${GRADE_HEX[item.gradeId]}99, #1a1510cc 55%)`
+              : "linear-gradient(180deg, #24201a, #14100b)",
             border: item.gradeId != null
               ? `1.5px solid ${GRADE_HEX[item.gradeId]}88`
               : "1.5px solid rgba(113,113,122,0.5)",
