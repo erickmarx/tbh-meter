@@ -353,10 +353,17 @@ function ItemCard({ item }: { item: InventoryItem }) {
         style={{ opacity: hovered ? 1 : 0 }}
       />
 
-      {/* Quantity badge — top left */}
+      {/* Level — top left */}
+      {!material && item.level != null && (
+        <span className="absolute top-0 left-0 z-10 rounded-br-sm bg-black/70 px-1 text-[9px] font-bold leading-none text-zinc-200">
+          Lv{item.level}
+        </span>
+      )}
+
+      {/* Quantity badge — top right */}
       {item.count > 1 && (
         <span
-          className="absolute top-0 left-0 z-10 rounded-br-sm bg-black/70 px-1 text-[10px] font-black leading-none text-white"
+          className="absolute top-0 right-0 z-10 rounded-bl-sm bg-black/70 px-1 text-[10px] font-black leading-none text-white"
         >
           ×{item.count}
         </span>
@@ -372,13 +379,6 @@ function ItemCard({ item }: { item: InventoryItem }) {
           (e.target as HTMLImageElement).style.display = "none";
         }}
       />
-
-      {/* Level — bottom left */}
-      {!material && item.level != null && (
-        <span className="absolute bottom-0 left-0 z-10 rounded-tr-sm bg-black/70 px-1 text-[9px] font-bold leading-none text-zinc-200">
-          Lv{item.level}
-        </span>
-      )}
 
       {/* Price — bottom right */}
       {item.totalValue != null && (
