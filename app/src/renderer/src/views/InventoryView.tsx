@@ -399,9 +399,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
         <div
           className="fixed pointer-events-none z-[999] rounded-xl px-4 py-3.5 max-w-[calc(100vw-16px)]"
           style={{
-            background: item.gradeId != null
-              ? `linear-gradient(180deg, ${GRADE_HEX[item.gradeId]}18 0%, ${GRADE_HEX[item.gradeId]}08 30%, #14100b 50%)`
-              : "#14100b",
+            background: "#14100b",
             border: item.gradeId != null
               ? `1px solid ${GRADE_HEX[item.gradeId]}55`
               : "1px solid rgba(113,113,122,0.25)",
