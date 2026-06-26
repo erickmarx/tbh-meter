@@ -356,12 +356,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
       {/* Quantity badge — top left */}
       {item.count > 1 && (
         <span
-          className="absolute top-0.5 left-0.5 z-10 text-[11px] font-black leading-none"
-          style={{
-            color: "#e0d5c0",
-            textShadow: "rgb(0,0,0) 0px 0px 3px, rgb(0,0,0) 0px 0px 3px",
-            fontFamily: "monospace",
-          }}
+          className="absolute top-0 left-0 z-10 rounded-br-sm bg-black/70 px-1 text-[10px] font-black leading-none text-white"
         >
           ×{item.count}
         </span>
@@ -380,14 +375,14 @@ function ItemCard({ item }: { item: InventoryItem }) {
 
       {/* Level — bottom left */}
       {!material && item.level != null && (
-        <span className="absolute bottom-0.5 left-0.5 text-[8px] font-semibold leading-none text-zinc-400">
+        <span className="absolute bottom-0 left-0 z-10 rounded-tr-sm bg-black/70 px-1 text-[9px] font-bold leading-none text-zinc-200">
           Lv{item.level}
         </span>
       )}
 
       {/* Price — bottom right */}
       {item.totalValue != null && (
-        <span className="absolute bottom-0.5 right-0.5 rounded-sm bg-emerald-500/15 px-0.5 text-[8px] font-bold leading-none text-emerald-400">
+        <span className="absolute bottom-0 right-0 z-10 rounded-tl-sm bg-black/70 px-1 text-[9px] font-bold leading-none text-emerald-300">
           ${item.totalValue.toFixed(2)}
         </span>
       )}
