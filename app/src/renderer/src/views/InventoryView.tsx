@@ -397,10 +397,21 @@ function ItemCard({ item }: { item: InventoryItem }) {
       {/* Tooltip — portaled to body to avoid overflow clipping */}
       {open && tooltipPos && createPortal(
         <div
-          className="fixed pointer-events-none z-[999] rounded-md border px-2.5 py-1.5 shadow-xl max-w-[calc(100vw-16px)]"
+          className="fixed pointer-events-none z-[999] rounded-xl px-4 py-3.5 max-w-[calc(100vw-16px)]"
           style={{
-            background: item.gradeId != null ? `${GRADE_HEX[item.gradeId]}dd` : "#18181b",
-            borderColor: item.gradeId != null ? GRADE_HEX[item.gradeId] : "rgba(113,113,122,0.4)",
+            background: item.gradeId != null
+              ? `linear-gradient(180deg, ${GRADE_HEX[item.gradeId]}18, #14100b 45%)`
+              : "linear-gradient(180deg, #18181b, #14100b 45%)",
+            border: item.gradeId != null
+              ? `1.5px solid ${GRADE_HEX[item.gradeId]}70`
+              : "1.5px solid rgba(113,113,122,0.4)",
+            boxShadow: item.gradeId != null
+              ? `
+                  ${GRADE_HEX[item.gradeId]}25 0 0 0 1px,
+                  ${GRADE_HEX[item.gradeId]}1c 0 0 14px,
+                  rgba(0,0,0,0.4) 0 2px 10px,
+                  rgba(255,255,255,0.016) 0 1px 0 inset`
+              : "rgba(0,0,0,0.4) 0 2px 10px",
             top: tooltipPos.top,
             left: tooltipPos.left,
           }}
@@ -423,59 +434,97 @@ function ItemTooltip({
   item: InventoryItem; material: boolean; tradable: boolean; gradeName: string; gradeHex?: string;
 }) {
   const src = spriteSrc(item.itemKey);
+  const hex = gradeHex ?? "#888";
   return (
-    <div className="flex gap-2 text-xs whitespace-nowrap">
-      {/* Sprite */}
-      {src && (
-        <img
-          src={src}
-          alt=""
-          className="size-10 shrink-0 object-contain"
-          style={{ imageRendering: "pixelated" }}
-        />
+    <div className="flex w-[240px] flex-col gap-2 text-xs" style={{ fontFamily: "Lato-Semibold, 'Segoe UI', sans-serif" }}>
+      {/* Sprite + name row */}
+      <div className="flex items-center gap-2.5">
+        {/* Sprite in grade-framed container */}
+        <div
+          className="relative flex size-[52px] shrink-0 items-center justify-center overflow-hidden rounded"
+          style={{
+            border: `1px solid ${hex}44`,
+            backgroundImage: `url(sprites/item_slot/ItemSlot_${gradeName}.png)`,
+            backgroundSize: "cover",
+            imageRendering: "pixelated",
+          }}
+        >
+          <img
+            src={src}
+            alt=""
+            className="size-[38px] object-contain"
+            style={{ imageRendering: "pixelated" }}
+          />
+        </div>
+        {/* Name + grade pill */}
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="truncate text-[13px] font-semibold" style={{ color: "#e8dcc0" }}>
+            {item.name}
+          </span>
+          <span
+            className="self-start rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wider"
+            style={{
+              color: hex,
+              background: `${hex}18`,
+              borderColor: `${hex}33`,
+            }}
+          >
+            {gradeName}
+          </span>
+        </div>
+      </div>
+
+      {/* Level */}
+      {!material && item.level != null && (
+        <span className="text-[11px]" style={{ color: "#8a6a30" }}>Level {item.level}</span>
       )}
-      <div className="flex flex-col gap-0.5">
-        {/* Name + Grade */}
-        <div>
-          <span className="font-semibold text-zinc-100">{item.name}</span>
-          {gradeName && (
-            <span className="ml-1 text-[10px] font-semibold" style={{ color: gradeHex ?? "#888" }}>
-              {gradeName}
-            </span>
+
+      {/* Divider */}
+      <div className="-mx-1 h-px" style={{ background: "#1e1608" }} />
+
+      {/* Pricing */}
+      <div className="flex items-end justify-between">
+        <div className="flex flex-col gap-0.5">
+          {item.price != null ? (
+            <>
+              <span className="text-[11px] uppercase tracking-wider" style={{ color: "#5a4028" }}>Price</span>
+              <span className="text-[14px] font-bold" style={{ color: "#ffb347", fontFamily: "monospace" }}>
+                ${item.price.toFixed(2)}
+              </span>
+            </>
+          ) : (
+            <span className="text-[11px] italic" style={{ color: "#5a4028" }}>No listings</span>
           )}
         </div>
-        {/* Level */}
-        {!material && item.level != null && (
-          <span className="text-[10px] text-zinc-400">Lv {item.level}</span>
-        )}
-        {/* Pricing */}
-        {tradable && (
-          <div className="flex flex-col gap-px">
-            {item.price != null ? (
-              <>
-                <span className="text-[10px] text-zinc-400">
-                  ${item.price.toFixed(2)} <span className="text-zinc-600">ea</span>
-                </span>
-                {item.count > 1 && item.totalValue != null && (
-                  <span className="text-[10px] font-bold text-emerald-400">
-                    ${item.totalValue.toFixed(2)} <span className="text-zinc-600">total (×{item.count})</span>
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="text-[10px] italic text-zinc-500">No active listings</span>
-            )}
-            {item.volume > 0 && (
-              <span className="text-[9px] text-zinc-600">Vol: {item.volume.toLocaleString()} (24h)</span>
-            )}
+        {item.count > 1 && item.totalValue != null && (
+          <div className="flex flex-col items-end gap-0.5">
+            <span className="text-[11px] uppercase tracking-wider" style={{ color: "#5a4028" }}>Total (×{item.count})</span>
+            <span className="text-[14px] font-bold" style={{ color: "#4ade80", fontFamily: "monospace" }}>
+              ${item.totalValue.toFixed(2)}
+            </span>
           </div>
         )}
-        {!tradable && (
-          <span className="text-[10px] italic text-zinc-500">Not tradable</span>
-        )}
-        {/* ID */}
-        <span className="text-[9px] text-zinc-700">ID: {item.itemKey}</span>
       </div>
+
+      {/* Volume */}
+      {item.volume > 0 && (
+        <div className="-mx-1 border-t pt-1.5" style={{ borderColor: "#1a1105" }}>
+          <div className="flex justify-between">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: "#5a4028" }}>Vol</div>
+              <div className="text-[11px] font-semibold" style={{ color: "#8a6a30", fontFamily: "monospace" }}>
+                {item.volume.toLocaleString()}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-wider" style={{ color: "#5a4028" }}>ID</div>
+              <div className="text-[11px] font-semibold" style={{ color: "#8a6a30", fontFamily: "monospace" }}>
+                {item.itemKey}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
