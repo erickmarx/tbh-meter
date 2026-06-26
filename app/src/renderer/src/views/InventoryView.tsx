@@ -400,18 +400,17 @@ function ItemCard({ item }: { item: InventoryItem }) {
           className="fixed pointer-events-none z-[999] rounded-xl px-4 py-3.5 max-w-[calc(100vw-16px)]"
           style={{
             background: item.gradeId != null
-              ? `linear-gradient(180deg, ${GRADE_HEX[item.gradeId]}99, #1a1510cc 55%)`
-              : "linear-gradient(180deg, #24201a, #14100b)",
+              ? `linear-gradient(180deg, ${GRADE_HEX[item.gradeId]}1a, #14100bf2 30%)`
+              : "#14100bf2",
             border: item.gradeId != null
-              ? `1.5px solid ${GRADE_HEX[item.gradeId]}88`
-              : "1.5px solid rgba(113,113,122,0.5)",
+              ? `1px solid ${GRADE_HEX[item.gradeId]}55`
+              : "1px solid rgba(113,113,122,0.3)",
             boxShadow: item.gradeId != null
               ? `
-                  ${GRADE_HEX[item.gradeId]}25 0 0 0 1px,
-                  ${GRADE_HEX[item.gradeId]}1c 0 0 14px,
-                  rgba(0,0,0,0.4) 0 2px 10px,
-                  rgba(255,255,255,0.016) 0 1px 0 inset`
-              : "rgba(0,0,0,0.4) 0 2px 10px",
+                  0 0 0 1px ${GRADE_HEX[item.gradeId]}18,
+                  0 0 18px ${GRADE_HEX[item.gradeId]}22,
+                  0 2px 12px rgba(0,0,0,0.5)`
+              : "0 2px 12px rgba(0,0,0,0.5)",
             top: tooltipPos.top,
             left: tooltipPos.left,
           }}
