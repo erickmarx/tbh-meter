@@ -355,17 +355,17 @@ function ItemCard({ item }: { item: InventoryItem }) {
         style={{ opacity: hovered ? 1 : 0 }}
       />
 
-      {/* Quantity badge */}
-      {material && item.count > 1 && (
+      {/* Quantity badge — top left */}
+      {item.count > 1 && (
         <span
-          className="absolute bottom-0.5 right-1 z-10 text-[11px] font-black leading-none"
+          className="absolute top-0.5 left-0.5 z-10 text-[11px] font-black leading-none"
           style={{
             color: "#e0d5c0",
             textShadow: "rgb(0,0,0) 0px 0px 3px, rgb(0,0,0) 0px 0px 3px",
             fontFamily: "monospace",
           }}
         >
-          {item.count}
+          ×{item.count}
         </span>
       )}
 
@@ -380,17 +380,19 @@ function ItemCard({ item }: { item: InventoryItem }) {
         }}
       />
 
-      {/* Level + price footer */}
-      <div className="absolute bottom-0.5 left-1 flex items-center gap-1">
-        {!material && item.level != null && (
-          <span className="text-[8px] font-semibold leading-none text-zinc-400">Lv{item.level}</span>
-        )}
-        {item.totalValue != null && (
-          <span className="rounded-sm bg-emerald-500/15 px-0.5 text-[8px] font-bold leading-none text-emerald-400">
-            ${item.totalValue.toFixed(2)}
-          </span>
-        )}
-      </div>
+      {/* Level — bottom left */}
+      {!material && item.level != null && (
+        <span className="absolute bottom-0.5 left-0.5 text-[8px] font-semibold leading-none text-zinc-400">
+          Lv{item.level}
+        </span>
+      )}
+
+      {/* Price — bottom right */}
+      {item.totalValue != null && (
+        <span className="absolute bottom-0.5 right-0.5 rounded-sm bg-emerald-500/15 px-0.5 text-[8px] font-bold leading-none text-emerald-400">
+          ${item.totalValue.toFixed(2)}
+        </span>
+      )}
 
       {/* Tooltip — portaled to body to avoid overflow clipping */}
       {open && tooltipPos && createPortal(
