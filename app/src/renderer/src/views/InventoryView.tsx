@@ -32,18 +32,18 @@ function gradeSlotSrc(gradeId: number | null): string | undefined {
   return name ? `sprites/item_slot/ItemSlot_${name}.png` : undefined;
 }
 
-// Grade solid tooltip backgrounds — dark opaque variants (30% lighter)
+// Grade solid tooltip backgrounds — dark opaque variants (30% brighter)
 const GRADE_BG: Record<number, string> = {
-  9: "#2a2a34", // COSMIC
-  8: "#2a2a1a", // DIVINE
-  7: "#1a2a2e", // CELESTIAL
-  6: "#2a1a22", // BEYOND
-  5: "#2a1a34", // ARCANA
-  4: "#2a1a1a", // IMMORTAL
-  3: "#2a2016", // LEGENDARY
-  2: "#16202e", // RARE
-  1: "#162a1a", // UNCOMMON
-  0: "#202020", // COMMON
+  9: "#363644", // COSMIC
+  8: "#363624", // DIVINE
+  7: "#24363c", // CELESTIAL
+  6: "#36242e", // BEYOND
+  5: "#362444", // ARCANA
+  4: "#362424", // IMMORTAL
+  3: "#362a1e", // LEGENDARY
+  2: "#1e2a3c", // RARE
+  1: "#1e3624", // UNCOMMON
+  0: "#2a2a2a", // COMMON
 };
 
 // Grade hex colors for borders/glow (from wiki)
@@ -418,14 +418,16 @@ function ItemCard({ item }: { item: InventoryItem }) {
               ? `linear-gradient(315deg, ${GRADE_BG[item.gradeId]}, ${GRADE_BG[item.gradeId]} 40%)`
               : "linear-gradient(315deg, #14100b, #202020 40%)",
             border: item.gradeId != null
-              ? `1.5px solid ${GRADE_HEX[item.gradeId]}88`
-              : "1px solid rgba(113,113,122,0.25)",
+              ? `1.5px solid ${GRADE_HEX[item.gradeId]}aa`
+              : "1.5px solid rgba(113,113,122,0.35)",
             boxShadow: item.gradeId != null
               ? `
+                  inset 0 1px 0 rgba(255,255,255,0.04),
+                  inset 0 -1px 0 rgba(0,0,0,0.2),
                   0 0 0 1px ${GRADE_HEX[item.gradeId]}22,
                   0 0 24px ${GRADE_HEX[item.gradeId]}25,
-                  0 4px 16px rgba(0,0,0,0.5)`
-              : "0 4px 16px rgba(0,0,0,0.5)",
+                  3px 3px 0 rgba(0,0,0,0.3)`
+              : "inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -1px 0 rgba(0,0,0,0.2), 3px 3px 0 rgba(0,0,0,0.3)",
             top: tooltipPos.top,
             left: tooltipPos.left,
           }}
