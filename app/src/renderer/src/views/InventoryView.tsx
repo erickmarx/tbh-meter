@@ -399,8 +399,8 @@ function ItemCard({ item }: { item: InventoryItem }) {
         <div
           className="fixed pointer-events-none z-[999] rounded-md border px-2.5 py-1.5 shadow-xl max-w-[calc(100vw-16px)]"
           style={{
-            background: item.gradeId != null ? `${GRADE_HEX[item.gradeId]}22` : "#18181b",
-            borderColor: item.gradeId != null ? `${GRADE_HEX[item.gradeId]}66` : "rgba(113,113,122,0.4)",
+            background: item.gradeId != null ? `${GRADE_HEX[item.gradeId]}dd` : "#18181b",
+            borderColor: item.gradeId != null ? GRADE_HEX[item.gradeId] : "rgba(113,113,122,0.4)",
             top: tooltipPos.top,
             left: tooltipPos.left,
           }}
