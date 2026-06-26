@@ -32,25 +32,18 @@ function gradeSlotSrc(gradeId: number | null): string | undefined {
   return name ? `sprites/item_slot/ItemSlot_${name}.png` : undefined;
 }
 
-// Grade solid tooltip backgrounds — 45% luminance from wiki colors
-const GRADE_BG: Record<number, string> = {
-  9: "#717171", // COSMIC from #fcfcfc
-  8: "#716626", // DIVINE from #fce454
-  7: "#305c66", // CELESTIAL from #6ccce4
-  6: "#711030", // BEYOND from #fc246c
-  5: "#510571", // ARCANA from #b40cfc
-  4: "#711010", // IMMORTAL from #fc2424
-  3: "#714705", // LEGENDARY from #fc9c0c
-  2: "#053071", // RARE from #0c6cfc
-  1: "#257105", // UNCOMMON from #54fc0c
-  0: "#666666", // COMMON from #e4e4e4
-};
-
-// Grade hex colors for borders/glow (from wiki)
+// Grade hex colors for borders/glow (from wiki — canonical, immutable)
 const GRADE_HEX: Record<number, string> = {
   9: "#fcfcfc", 8: "#fce454", 7: "#6ccce4", 6: "#fc246c", 5: "#b40cfc",
   4: "#fc2424", 3: "#fc9c0c", 2: "#0c6cfc", 1: "#54fc0c", 0: "#e4e4e4",
 };
+
+// Precomputed luminance variants (GRADE_HEX × multiplier — solid, no alpha)
+const GRADE_10: Record<number, string> = { 9:"#191919",8:"#191608",7:"#0a1416",6:"#19030a",5:"#120119",4:"#190303",3:"#190f01",2:"#010a19",1:"#081901",0:"#161616" };
+const GRADE_20: Record<number, string> = { 9:"#323232",8:"#322d10",7:"#152b2d",6:"#320715",5:"#240132",4:"#320707",3:"#321e02",2:"#021532",1:"#103202",0:"#2d2d2d" };
+const GRADE_30: Record<number, string> = { 9:"#4b4b4b",8:"#4b4419",7:"#203d44",6:"#4b0a20",5:"#36034b",4:"#4b0a0a",3:"#4b2e03",2:"#03204b",1:"#194b03",0:"#444444" };
+const GRADE_45: Record<number, string> = { 9:"#717171",8:"#716625",7:"#305b66",6:"#711030",5:"#510571",4:"#711010",3:"#714605",2:"#053071",1:"#257105",0:"#666666" };
+const GRADE_60: Record<number, string> = { 9:"#979797",8:"#978832",7:"#407a88",6:"#971540",5:"#6c0797",4:"#971515",3:"#975d07",2:"#074097",1:"#329707",0:"#888888" };
 
 const GRADE_NAMES: Record<number, string> = {
   9: "COSMIC", 8: "DIVINE", 7: "CELESTIAL", 6: "BEYOND", 5: "ARCANA",
@@ -414,7 +407,12 @@ function ItemCard({ item }: { item: InventoryItem }) {
           className="fixed pointer-events-none z-[999] rounded px-4 py-3.5 max-w-[calc(100vw-16px)]"
           style={{
             imageRendering: "pixelated",
-            background: item.gradeId != null ? GRADE_HEX[item.gradeId] : "#14100b",
+            backgroundImage: item.gradeId != null
+              ? `linear-gradient(180deg, ${GRADE_10[item.gradeId]}, ${GRADE_10[item.gradeId]})`
+              : "linear-gradient(180deg, #161616, #161616)",
+            border: item.gradeId != null
+              ? `2px solid ${GRADE_60[item.gradeId]}`
+              : "2px solid rgba(113,113,122,0.4)",
             top: tooltipPos.top,
             left: tooltipPos.left,
           }}
@@ -439,95 +437,89 @@ function ItemTooltip({
   const src = spriteSrc(item.itemKey);
   const hex = gradeHex ?? "#888";
   return (
-    <div className="flex w-[240px] flex-col gap-2 text-xs" style={{ fontFamily: "Lato-Semibold, 'Segoe UI', sans-serif" }}>
-      {/* Sprite + name row */}
-      <div className="flex items-center gap-2.5">
-        {/* Sprite in grade-framed container */}
+    <div className="flex w-[240px] flex-col text-xs" style={{ fontFamily: "Lato-Semibold, 'Segoe UI', sans-serif" }}>
+      {/* ── Header: sprite + name + grade — full-width colored panel ── */}
+      <div
+        className="-mx-4 -mt-3.5 flex items-center gap-2.5 rounded-t px-4 pt-3.5 pb-2.5"
+        style={{ background: item.gradeId != null ? GRADE_20[item.gradeId] : hex, imageRendering: "pixelated" }}
+      >
         <div
-          className="relative flex size-[52px] shrink-0 items-center justify-center overflow-hidden rounded"
+          className="relative flex size-[44px] shrink-0 items-center justify-center overflow-hidden rounded"
           style={{
-            border: `1px solid ${hex}44`,
-            backgroundImage: `url(sprites/item_slot/ItemSlot_${gradeName}.png)`,
-            backgroundSize: "cover",
+            border: "1px solid rgba(255,255,255,0.2)",
+            background: "rgba(0,0,0,0.2)",
             imageRendering: "pixelated",
           }}
         >
           <img
             src={src}
             alt=""
-            className="size-[38px] object-contain"
+            className="size-[32px] object-contain"
             style={{ imageRendering: "pixelated" }}
           />
         </div>
-        {/* Name + grade pill */}
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="truncate text-[13px] font-semibold" style={{ color: "#e8dcc0" }}>
-            {item.name}
-          </span>
-          <span
-            className="self-start rounded-full border px-2 py-0.5 text-[10px] font-bold tracking-wider"
-            style={{
-              color: hex,
-              background: `${hex}18`,
-              borderColor: `${hex}33`,
-            }}
-          >
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-[13px] font-bold text-white">{item.name}</span>
+          <span className="self-start rounded-full bg-white/15 px-2 py-px text-[9px] font-bold uppercase tracking-wider text-white/90">
             {gradeName}
           </span>
         </div>
       </div>
 
-      {/* Level */}
-      {!material && item.level != null && (
-        <span className="text-[11px]" style={{ color: "#8a6a30" }}>Level {item.level}</span>
-      )}
+      {/* ── Body: pricing info ── */}
+      <div className="flex flex-col gap-2 pt-2.5">
+        {/* Level */}
+        {!material && item.level != null && (
+          <span className="text-[11px]" style={{ color: "#8a6a30" }}>Level {item.level}</span>
+        )}
 
-      {/* Divider */}
-      <div className="-mx-1 h-px" style={{ background: "#1e1608" }} />
+        {/* Divider */}
+        <div className="-mx-4 h-px" style={{ background: "#1e1608" }} />
 
-      {/* Pricing */}
-      <div className="flex items-end justify-between">
-        <div className="flex flex-col gap-0.5">
-          {item.price != null ? (
-            <>
-              <span className="text-[11px] uppercase tracking-wider" style={{ color: "#5a4028" }}>Price</span>
-              <span className="text-[14px] font-bold" style={{ color: "#ffb347", fontFamily: "monospace" }}>
-                ${item.price.toFixed(2)}
+        {/* Pricing */}
+        <div className="flex items-end justify-between">
+          <div className="flex flex-col gap-0.5">
+            {item.price != null ? (
+              <>
+                <span className="text-[11px] uppercase tracking-wider" style={{ color: "#5a4028" }}>Price</span>
+                <span className="text-[14px] font-bold" style={{ color: "#ffb347", fontFamily: "monospace" }}>
+                  ${item.price.toFixed(2)}
+                </span>
+              </>
+            ) : (
+              <span className="text-[11px] italic" style={{ color: "#5a4028" }}>No listings</span>
+            )}
+          </div>
+          {item.count > 1 && item.totalValue != null && (
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-[11px] uppercase tracking-wider" style={{ color: "#5a4028" }}>Total (×{item.count})</span>
+              <span className="text-[14px] font-bold" style={{ color: "#4ade80", fontFamily: "monospace" }}>
+                ${item.totalValue.toFixed(2)}
               </span>
-            </>
-          ) : (
-            <span className="text-[11px] italic" style={{ color: "#5a4028" }}>No listings</span>
+            </div>
           )}
         </div>
-        {item.count > 1 && item.totalValue != null && (
-          <div className="flex flex-col items-end gap-0.5">
-            <span className="text-[11px] uppercase tracking-wider" style={{ color: "#5a4028" }}>Total (×{item.count})</span>
-            <span className="text-[14px] font-bold" style={{ color: "#4ade80", fontFamily: "monospace" }}>
-              ${item.totalValue.toFixed(2)}
-            </span>
+
+        {/* Volume + ID */}
+        {item.volume > 0 && (
+          <div className="-mx-4 border-t px-4 pt-1.5" style={{ borderColor: "#1a1105" }}>
+            <div className="flex justify-between">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider" style={{ color: "#5a4028" }}>Vol</div>
+                <div className="text-[11px] font-semibold" style={{ color: "#8a6a30", fontFamily: "monospace" }}>
+                  {item.volume.toLocaleString()}
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-[10px] uppercase tracking-wider" style={{ color: "#5a4028" }}>ID</div>
+                <div className="text-[11px] font-semibold" style={{ color: "#8a6a30", fontFamily: "monospace" }}>
+                  {item.itemKey}
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Volume */}
-      {item.volume > 0 && (
-        <div className="-mx-1 border-t pt-1.5" style={{ borderColor: "#1a1105" }}>
-          <div className="flex justify-between">
-            <div>
-              <div className="text-[10px] uppercase tracking-wider" style={{ color: "#5a4028" }}>Vol</div>
-              <div className="text-[11px] font-semibold" style={{ color: "#8a6a30", fontFamily: "monospace" }}>
-                {item.volume.toLocaleString()}
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-[10px] uppercase tracking-wider" style={{ color: "#5a4028" }}>ID</div>
-              <div className="text-[11px] font-semibold" style={{ color: "#8a6a30", fontFamily: "monospace" }}>
-                {item.itemKey}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
