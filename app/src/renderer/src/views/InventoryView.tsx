@@ -32,6 +32,12 @@ function gradeSlotSrc(gradeId: number | null): string | undefined {
   return name ? `sprites/item_slot/ItemSlot_${name}.png` : undefined;
 }
 
+// Grade hex colors from taskbarhero.wiki/grades (for tooltip styling)
+const GRADE_HEX: Record<number, string> = {
+  9: "#fcfcfc", 8: "#fce454", 7: "#6ccce4", 6: "#fc246c", 5: "#b40cfc",
+  4: "#fc2424", 3: "#fc9c0c", 2: "#0c6cfc", 1: "#54fc0c", 0: "#e4e4e4",
+};
+
 const GRADE_NAMES: Record<number, string> = {
   9: "COSMIC", 8: "DIVINE", 7: "CELESTIAL", 6: "BEYOND", 5: "ARCANA",
   4: "IMMORTAL", 3: "LEGENDARY", 2: "RARE", 1: "UNCOMMON", 0: "COMMON",
@@ -391,14 +397,15 @@ function ItemCard({ item }: { item: InventoryItem }) {
       {/* Tooltip — portaled to body to avoid overflow clipping */}
       {open && tooltipPos && createPortal(
         <div
-          className="fixed pointer-events-none z-[999] rounded-md border border-surface-500/70 px-2.5 py-1.5 shadow-xl max-w-[calc(100vw-16px)]"
+          className="fixed pointer-events-none z-[999] rounded-md border px-2.5 py-1.5 shadow-xl max-w-[calc(100vw-16px)]"
           style={{
-            background: "#18181b",
+            background: item.gradeId != null ? `${GRADE_HEX[item.gradeId]}22` : "#18181b",
+            borderColor: item.gradeId != null ? `${GRADE_HEX[item.gradeId]}66` : "rgba(113,113,122,0.4)",
             top: tooltipPos.top,
             left: tooltipPos.left,
           }}
         >
-          <ItemTooltip item={item} material={material} tradable={tradable} gradeName={gradeName} />
+          <ItemTooltip item={item} material={material} tradable={tradable} gradeName={gradeName} gradeHex={item.gradeId != null ? GRADE_HEX[item.gradeId] : undefined} />
         </div>,
         document.body,
       )}
@@ -411,36 +418,64 @@ function ItemCard({ item }: { item: InventoryItem }) {
 // ---------------------------------------------------------------------------
 
 function ItemTooltip({
-  item, material, tradable, gradeName,
+  item, material, tradable, gradeName, gradeHex,
 }: {
-  item: InventoryItem; material: boolean; tradable: boolean; gradeName: string;
+  item: InventoryItem; material: boolean; tradable: boolean; gradeName: string; gradeHex?: string;
 }) {
+  const src = spriteSrc(item.itemKey);
   return (
-    <div className="flex flex-col gap-0.5 text-xs whitespace-nowrap">
-      <span className="font-semibold text-zinc-100">{item.name}</span>
-      <span className="text-[9px] text-zinc-600">ID: {item.itemKey}</span>
-      {material && (
-        <>
-          <span className="text-zinc-400">
-            ×{item.count}
-            {item.price != null && <> · ${item.price.toFixed(2)} ea</>}
-            {item.totalValue != null && <> · <span className="text-emerald-400">${item.totalValue.toFixed(2)} total</span></>}
-          </span>
-          {item.volume > 0 && <span className="text-zinc-500">Vol: {item.volume.toLocaleString()} (24h)</span>}
-        </>
+    <div className="flex gap-2 text-xs whitespace-nowrap">
+      {/* Sprite */}
+      {src && (
+        <img
+          src={src}
+          alt=""
+          className="size-10 shrink-0 object-contain"
+          style={{ imageRendering: "pixelated" }}
+        />
       )}
-      {!material && (
-        <>
-          <span className="text-zinc-400">
-            {gradeName && <>{gradeName}</>}
-            {item.level != null && <> · Lv {item.level}</>}
-          </span>
-          {tradable && item.price != null && <span className="font-bold text-emerald-400">${item.price.toFixed(2)}</span>}
-          {tradable && item.volume > 0 && <span className="text-zinc-500">Vol: {item.volume.toLocaleString()} (24h)</span>}
-          {!tradable && <span className="italic text-zinc-500">Not tradable</span>}
-        </>
-      )}
-      {tradable && item.price == null && <span className="text-zinc-500">No active listings</span>}
+      <div className="flex flex-col gap-0.5">
+        {/* Name + Grade */}
+        <div>
+          <span className="font-semibold text-zinc-100">{item.name}</span>
+          {gradeName && (
+            <span className="ml-1 text-[10px] font-semibold" style={{ color: gradeHex ?? "#888" }}>
+              {gradeName}
+            </span>
+          )}
+        </div>
+        {/* Level */}
+        {!material && item.level != null && (
+          <span className="text-[10px] text-zinc-400">Lv {item.level}</span>
+        )}
+        {/* Pricing */}
+        {tradable && (
+          <div className="flex flex-col gap-px">
+            {item.price != null ? (
+              <>
+                <span className="text-[10px] text-zinc-400">
+                  ${item.price.toFixed(2)} <span className="text-zinc-600">ea</span>
+                </span>
+                {item.count > 1 && item.totalValue != null && (
+                  <span className="text-[10px] font-bold text-emerald-400">
+                    ${item.totalValue.toFixed(2)} <span className="text-zinc-600">total (×{item.count})</span>
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-[10px] italic text-zinc-500">No active listings</span>
+            )}
+            {item.volume > 0 && (
+              <span className="text-[9px] text-zinc-600">Vol: {item.volume.toLocaleString()} (24h)</span>
+            )}
+          </div>
+        )}
+        {!tradable && (
+          <span className="text-[10px] italic text-zinc-500">Not tradable</span>
+        )}
+        {/* ID */}
+        <span className="text-[9px] text-zinc-700">ID: {item.itemKey}</span>
+      </div>
     </div>
   );
 }
