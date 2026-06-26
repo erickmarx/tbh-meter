@@ -20,19 +20,17 @@ import { cn } from "~/lib/utils";
 // Constants
 // ---------------------------------------------------------------------------
 
-// Background fill per grade — colors from taskbarhero.wiki/grades
-const GRADE_HEX: Record<number, string> = {
-  9: "#fcfcfc", // COSMIC
-  8: "#fce454", // DIVINE
-  7: "#6ccce4", // CELESTIAL
-  6: "#fc246c", // BEYOND
-  5: "#b40cfc", // ARCANA
-  4: "#fc2424", // IMMORTAL
-  3: "#fc9c0c", // LEGENDARY
-  2: "#0c6cfc", // RARE
-  1: "#54fc0c", // UNCOMMON
-  0: "#e4e4e4", // COMMON
+// Grade slot background frame sprites — from data/sprites/item_slot/
+const GRADE_SLOT: Record<number, string> = {
+  0: "Normal", 1: "Uncommon", 2: "Rare", 3: "Legendary", 4: "Immortal",
+  5: "Arcana", 6: "Beyond", 7: "Celestial", 8: "Divine", 9: "Cosmic",
 };
+
+function gradeSlotSrc(gradeId: number | null): string | undefined {
+  if (gradeId == null) return undefined;
+  const name = GRADE_SLOT[gradeId];
+  return name ? `sprites/item_slot/ItemSlot_${name}.png` : undefined;
+}
 
 const GRADE_NAMES: Record<number, string> = {
   9: "COSMIC", 8: "DIVINE", 7: "CELESTIAL", 6: "BEYOND", 5: "ARCANA",
@@ -284,7 +282,7 @@ function FilterChip({ active, onClick, label }: { active: boolean; onClick: () =
 function ItemCard({ item }: { item: InventoryItem }) {
   const material = isMaterial(item);
   const tradable = isItemTradable(item);
-  const gradeHex = item.gradeId != null ? (GRADE_HEX[item.gradeId] ?? "") : "";
+  const gradeSlot = gradeSlotSrc(item.gradeId);
   const gradeName = item.gradeId != null ? (GRADE_NAMES[item.gradeId] ?? "") : "";
   const { open, anchorRef, hover } = useHoverTooltip<HTMLDivElement>();
   const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -341,9 +339,9 @@ function ItemCard({ item }: { item: InventoryItem }) {
       )}
       style={{
         width: 64, height: 64, imageRendering: "pixelated",
-        background: gradeHex || "rgba(24,24,27,0.8)",
-        outlineColor: gradeHex ? `${gradeHex}44` : "rgba(255,255,255,0.08)",
-        boxShadow: gradeHex ? `0 0 8px ${gradeHex}22, inset 0 0 6px ${gradeHex}11` : undefined,
+        backgroundImage: gradeSlot ? `url(${gradeSlot})` : undefined,
+        backgroundSize: "100% 100%",
+        outlineColor: gradeSlot ? undefined : "rgba(255,255,255,0.08)",
       }}
       onMouseEnter={handleEnter}
       onMouseMove={handleMove}
