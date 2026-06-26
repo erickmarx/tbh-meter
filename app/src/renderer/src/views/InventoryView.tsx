@@ -411,9 +411,12 @@ function ItemCard({ item }: { item: InventoryItem }) {
       {/* Tooltip — portaled to body to avoid overflow clipping */}
       {open && tooltipPos && createPortal(
         <div
-          className="fixed pointer-events-none z-[999] rounded-xl px-4 py-3.5 max-w-[calc(100vw-16px)]"
+          className="fixed pointer-events-none z-[999] rounded px-4 py-3.5 max-w-[calc(100vw-16px)]"
           style={{
-            background: item.gradeId != null ? GRADE_BG[item.gradeId] : "#14100b",
+            imageRendering: "pixelated",
+            background: item.gradeId != null
+              ? `linear-gradient(315deg, ${GRADE_BG[item.gradeId]}dd, ${GRADE_BG[item.gradeId]} 40%)`
+              : "linear-gradient(315deg, #14100b, #202020 40%)",
             border: item.gradeId != null
               ? `1px solid ${GRADE_HEX[item.gradeId]}77`
               : "1px solid rgba(113,113,122,0.25)",
