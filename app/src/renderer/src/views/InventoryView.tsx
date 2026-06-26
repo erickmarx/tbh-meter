@@ -334,17 +334,16 @@ function ItemCard({ item }: { item: InventoryItem }) {
         (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
       }}
       className={cn(
-        "relative flex cursor-pointer flex-col items-center justify-center",
-        "border-2 border-zinc-700/80 bg-zinc-900/90",
+        "relative flex cursor-pointer flex-col items-center justify-center rounded outline outline-1 -outline-offset-1",
+        "transition-[transform] duration-100",
         !tradable && "opacity-50",
-        hovered && "brightness-125",
+        hovered && "scale-105",
       )}
       style={{
         width: 64, height: 64, imageRendering: "pixelated",
-        background: gradeHex ? `${gradeHex}` : "#18181b",
-        boxShadow: gradeHex
-          ? `inset 0 0 0 1px ${gradeHex}66, 2px 2px 0 ${gradeHex}44`
-          : "2px 2px 0 rgba(0,0,0,0.4)",
+        background: gradeHex ? `${gradeHex}44` : "rgba(24,24,27,0.8)",
+        outlineColor: gradeHex || "rgba(255,255,255,0.08)",
+        boxShadow: gradeHex ? `0 0 8px ${gradeHex}44, inset 0 0 6px ${gradeHex}22` : undefined,
       }}
       onMouseEnter={handleEnter}
       onMouseMove={handleMove}
@@ -352,7 +351,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
     >
       {/* Hover highlight */}
       <div
-        className="pointer-events-none absolute inset-0 bg-white/[0.06] opacity-0"
+        className="pointer-events-none absolute inset-0 rounded bg-white/[0.08] opacity-0 transition-opacity duration-100"
         style={{ opacity: hovered ? 1 : 0 }}
       />
 
