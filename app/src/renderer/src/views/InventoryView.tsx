@@ -415,10 +415,10 @@ function ItemCard({ item }: { item: InventoryItem }) {
           style={{
             imageRendering: "pixelated",
             background: item.gradeId != null
-              ? `linear-gradient(315deg, ${GRADE_BG[item.gradeId]}dd, ${GRADE_BG[item.gradeId]} 40%)`
+              ? `linear-gradient(315deg, ${GRADE_BG[item.gradeId]}, ${GRADE_BG[item.gradeId]} 40%)`
               : "linear-gradient(315deg, #14100b, #202020 40%)",
             border: item.gradeId != null
-              ? `1px solid ${GRADE_HEX[item.gradeId]}77`
+              ? `1.5px solid ${GRADE_HEX[item.gradeId]}88`
               : "1px solid rgba(113,113,122,0.25)",
             boxShadow: item.gradeId != null
               ? `
