@@ -235,7 +235,7 @@ export function InventoryView() {
         {sorted.length === 0 ? (
           <p className="py-2 text-xs text-zinc-600">{t("inventory.empty")}</p>
         ) : (
-          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(72px, 1fr))" }}>
+          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, 72px)" }}>
             {sorted.map((it, i) => (
               <ItemCard key={`${it.itemKey}-${i}`} item={it} />
             ))}
