@@ -246,7 +246,7 @@ export function InventoryView() {
         {sorted.length === 0 ? (
           <p className="py-2 text-xs text-zinc-600">{t("inventory.empty")}</p>
         ) : (
-          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, 64px)" }}>
+          <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, 52px)" }}>
             {sorted.map((it, i) => (
               <ItemCard key={`${it.itemKey}-${i}`} item={it} />
             ))}
@@ -338,7 +338,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
         hovered && "scale-105",
       )}
       style={{
-        width: 64, height: 64, imageRendering: "pixelated",
+        width: 52, height: 52, imageRendering: "pixelated",
         backgroundImage: gradeSlot ? `url(${gradeSlot})` : undefined,
         backgroundSize: "100% 100%",
         boxShadow: "3px 3px 0 rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06), inset 0 -1px 0 rgba(0,0,0,0.15)",
@@ -371,7 +371,7 @@ function ItemCard({ item }: { item: InventoryItem }) {
       <img
         src={spriteSrc(item.itemKey)}
         alt=""
-        className="w-[42px] h-[42px] object-contain opacity-90"
+        className="w-[34px] h-[34px] object-contain opacity-90"
         style={{ imageRendering: "pixelated" }}
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = "none";
